@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f5f0eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>MicroLearn</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+  <meta name="apple-mobile-web-app-title" content="MicroLearn">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <nav id="top-bar">
+      <button class="nav-back hidden" id="btn-back" aria-label="Back">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <h1 class="nav-title" id="nav-title">MicroLearn</h1>
+      <div class="nav-streak" id="nav-streak" title="Current streak">
+        <span class="streak-flame">🔥</span>
+        <span class="streak-count" id="streak-count">0</span>
+      </div>
+    </nav>
+
+    <!-- Today's Lesson Screen -->
+    <main id="screen-today" class="screen active">
+      <div class="today-hero" id="today-hero">
+        <div class="today-category" id="today-category"></div>
+        <div class="today-emoji" id="today-emoji"></div>
+        <h2 class="today-title" id="today-title">Loading...</h2>
+        <div class="today-meta">
+          <span class="today-duration" id="today-duration"></span>
+        </div>
+      </div>
+      <article class="lesson-body" id="today-body"></article>
+      <div class="lesson-takeaway" id="today-takeaway">
+        <strong>Key Takeaway</strong>
+        <p id="today-takeaway-text"></p>
+      </div>
+      <div class="feedback-row" id="today-feedback">
+        <span class="feedback-label">How was this lesson?</span>
+        <div class="feedback-buttons">
+          <button class="feedback-btn" data-rating="love" id="today-fb-love" title="Love it">
+            <span class="feedback-icon">♥</span><span class="feedback-text">Love it</span>
+          </button>
+          <button class="feedback-btn" data-rating="like" id="today-fb-like" title="Interesting">
+            <span class="feedback-icon">👍</span><span class="feedback-text">Good</span>
+          </button>
+          <button class="feedback-btn" data-rating="meh" id="today-fb-meh" title="Not for me">
+            <span class="feedback-icon">😐</span><span class="feedback-text">Meh</span>
+          </button>
+          <button class="feedback-btn" data-rating="dislike" id="today-fb-dislike" title="Less like this">
+            <span class="feedback-icon">👎</span><span class="feedback-text">Less</span>
+          </button>
+        </div>
+      </div>
+      <div class="lesson-actions">
+        <button class="btn-primary" id="btn-quiz">Test Your Knowledge</button>
+        <button class="btn-secondary" id="btn-bookmark">
+          <span id="bookmark-icon">☆</span> Bookmark
+        </button>
+      </div>
+      <div class="lesson-further" id="today-further">
+        <strong>Further Reading</strong>
+        <p id="today-further-text"></p>
+      </div>
+      <div class="recommended-section" id="today-recommended">
+        <h3>Recommended for You</h3>
+        <p class="recommended-hint" id="recommended-hint">Based on what you enjoy</p>
+        <div class="recommended-list" id="recommended-list"></div>
+      </div>
+    </main>
+
+    <!-- Quiz Screen -->
+    <section id="screen-quiz" class="screen">
+      <div class="quiz-card">
+        <h3 class="quiz-question" id="quiz-question"></h3>
+        <div class="quiz-options" id="quiz-options"></div>
+        <div class="quiz-result hidden" id="quiz-result">
+          <p class="quiz-result-text" id="quiz-result-text"></p>
+          <p class="quiz-explanation" id="quiz-explanation"></p>
+          <button class="btn-primary" id="btn-quiz-done">Done</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Library Screen -->
+    <section id="screen-library" class="screen">
+      <div class="library-header">
+        <h2>Library</h2>
+        <div class="library-filters" id="library-filters"></div>
+      </div>
+      <div class="library-grid" id="library-grid"></div>
+    </section>
+
+    <!-- Lesson Detail Screen (from library) -->
+    <section id="screen-lesson" class="screen">
+      <div class="today-hero" id="lesson-hero">
+        <div class="today-category" id="lesson-category"></div>
+        <div class="today-emoji" id="lesson-emoji"></div>
+        <h2 class="today-title" id="lesson-title"></h2>
+        <div class="today-meta">
+          <span class="today-duration" id="lesson-duration"></span>
+        </div>
+      </div>
+      <article class="lesson-body" id="lesson-body"></article>
+      <div class="lesson-takeaway" id="lesson-takeaway">
+        <strong>Key Takeaway</strong>
+        <p id="lesson-takeaway-text"></p>
+      </div>
+      <div class="feedback-row" id="lesson-feedback">
+        <span class="feedback-label">How was this lesson?</span>
+        <div class="feedback-buttons">
+          <button class="feedback-btn" data-rating="love" id="lesson-fb-love" title="Love it">
+            <span class="feedback-icon">♥</span><span class="feedback-text">Love it</span>
+          </button>
+          <button class="feedback-btn" data-rating="like" id="lesson-fb-like" title="Interesting">
+            <span class="feedback-icon">👍</span><span class="feedback-text">Good</span>
+          </button>
+          <button class="feedback-btn" data-rating="meh" id="lesson-fb-meh" title="Not for me">
+            <span class="feedback-icon">😐</span><span class="feedback-text">Meh</span>
+          </button>
+          <button class="feedback-btn" data-rating="dislike" id="lesson-fb-dislike" title="Less like this">
+            <span class="feedback-icon">👎</span><span class="feedback-text">Less</span>
+          </button>
+        </div>
+      </div>
+      <div class="lesson-actions">
+        <button class="btn-primary" id="btn-lesson-quiz">Test Your Knowledge</button>
+        <button class="btn-secondary" id="btn-lesson-bookmark">
+          <span id="lesson-bookmark-icon">☆</span> Bookmark
+        </button>
+      </div>
+      <div class="lesson-further" id="lesson-further">
+        <strong>Further Reading</strong>
+        <p id="lesson-further-text"></p>
+      </div>
+    </section>
+
+    <!-- Progress Screen -->
+    <section id="screen-progress" class="screen">
+      <div class="progress-header">
+        <h2>Your Progress</h2>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-streak">0</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-lessons">0</div>
+          <div class="stat-label">Lessons Read</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-quizzes">0</div>
+          <div class="stat-label">Quizzes Passed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-bookmarks">0</div>
+          <div class="stat-label">Bookmarks</div>
+        </div>
+      </div>
+      <div class="progress-section">
+        <h3>Your Interests</h3>
+        <p class="review-hint">The app learns your preferences and adjusts recommendations.</p>
+        <div class="interests-grid" id="interests-grid"></div>
+      </div>
+      <div class="progress-section">
+        <h3>Bookmarked Lessons</h3>
+        <div class="bookmarks-list" id="bookmarks-list">
+          <p class="empty-state">No bookmarks yet. Save lessons you want to revisit!</p>
+        </div>
+      </div>
+      <div class="progress-section">
+        <h3>Review Queue <span class="review-badge" id="review-badge">0</span></h3>
+        <p class="review-hint">Lessons return for review using spaced repetition to strengthen memory.</p>
+        <div class="review-list" id="review-list">
+          <p class="empty-state">Complete lessons to build your review queue!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install Banner -->
+    <div id="install-banner" class="install-banner hidden">
+      <div class="install-banner-content">
+        <div class="install-banner-icon">🧠</div>
+        <div class="install-banner-text">
+          <strong>Add MicroLearn to Home Screen</strong>
+          <p id="install-instructions"></p>
+        </div>
+        <button class="install-banner-action" id="btn-install">Install</button>
+        <button class="install-banner-close" id="btn-install-close" aria-label="Dismiss">&times;</button>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav id="bottom-nav">
+      <button class="nav-tab active" data-screen="today">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>Today</span>
+      </button>
+      <button class="nav-tab" data-screen="library">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Library</span>
+      </button>
+      <button class="nav-tab" data-screen="progress">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        <span>Progress</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
