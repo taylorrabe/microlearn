@@ -2,896 +2,599 @@
   "use strict";
 
   const STORAGE_KEY = "microlearn_data";
-
-  const PAINTINGS = [
-    { cls: "art-0", title: "The Starry Night", artist: "Vincent van Gogh, 1889" },
-    { cls: "art-1", title: "The Great Wave off Kanagawa", artist: "Katsushika Hokusai, 1831" },
-    { cls: "art-2", title: "Water Lilies", artist: "Claude Monet, 1906" },
-    { cls: "art-3", title: "The School of Athens", artist: "Raphael, 1511" },
-    { cls: "art-4", title: "Mona Lisa", artist: "Leonardo da Vinci, 1503" },
-    { cls: "art-5", title: "The Birth of Venus", artist: "Sandro Botticelli, 1485" },
-    { cls: "art-6", title: "Girl with a Pearl Earring", artist: "Johannes Vermeer, 1665" },
+  const RATING_W = { love: 5, like: 2, meh: -1, dislike: -3 };
+  const SIGNAL_W = { read: 0.5, bookmark: 3, quiz: 1.5 };
+  const CAT_COLORS = {
+    science: "#34d399", psychology: "#fb923c", mathematics: "#a78bfa",
+    history: "#fbbf24", technology: "#60a5fa", philosophy: "#c084fc",
+    linguistics: "#2dd4bf",
+  };
+  const GRADIENTS = [
+    "var(--grad-1)", "var(--grad-2)", "var(--grad-3)", "var(--grad-4)",
+    "var(--grad-5)", "var(--grad-6)", "var(--grad-7)",
   ];
 
-  const RATING_WEIGHTS = { love: 5, like: 2, meh: -1, dislike: -3 };
-  const SIGNAL_WEIGHTS = { read: 0.5, bookmark: 3, quiz_pass: 1.5 };
-  const CATEGORY_COLORS = {
-    science: "#1a7a6d",
-    psychology: "#b85c3a",
-    mathematics: "#5b4a9e",
-    history: "#9e7c20",
-    technology: "#2c6fbb",
-    philosophy: "#7b6aad",
-    linguistics: "#2a8a5e",
-  };
-
-  let currentArtIndex = -1;
-
-  function setBackground() {
-    let next;
-    do {
-      next = Math.floor(Math.random() * PAINTINGS.length);
-    } while (next === currentArtIndex && PAINTINGS.length > 1);
-    currentArtIndex = next;
-
-    const painting = PAINTINGS[currentArtIndex];
-    document.body.className = painting.cls;
-
-    let credit = document.querySelector(".art-credit");
-    if (!credit) {
-      credit = document.createElement("div");
-      credit.className = "art-credit";
-      document.body.appendChild(credit);
-    }
-    credit.textContent = painting.title + " — " + painting.artist;
-  }
-
-  setBackground();
-
   const state = {
-    lessons: [],
-    categories: [],
-    todayLesson: null,
-    currentLesson: null,
-    currentScreen: "today",
-    activeFilter: "all",
+    lessons: [], categories: [], todayLesson: null, currentLesson: null,
+    currentScreen: "today", activeFilter: "all",
+    readerCards: [], readerIndex: 0,
     userData: loadUserData(),
   };
 
+  /* ---------- persistence ---------- */
   function loadUserData() {
-    const defaults = {
-      streak: 0,
-      lastVisit: null,
-      lessonsRead: [],
-      quizzesPassed: [],
-      bookmarks: [],
-      reviewQueue: [],
-      ratings: {},
-      categoryScores: {},
-      todayLessonId: null,
-      todayDate: null,
-    };
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return saved ? { ...defaults, ...saved } : defaults;
-    } catch {
-      return defaults;
+    const d = { streak: 0, lastVisit: null, lessonsRead: [], quizzesPassed: [],
+      bookmarks: [], reviewQueue: [], ratings: {}, categoryScores: {},
+      todayLessonId: null, todayDate: null };
+    try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY)); return s ? { ...d, ...s } : d; }
+    catch { return d; }
+  }
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.userData)); }
+
+  function today() { return new Date().toISOString().split("T")[0]; }
+
+  /* ---------- preference engine ---------- */
+  function catScore(cat, delta) {
+    if (!cat) return;
+    const s = state.userData.categoryScores;
+    s[cat] = Math.round(((s[cat] || 0) + delta) * 100) / 100;
+    save();
+  }
+  function rateLesson(id, rating) {
+    const l = state.lessons.find(x => x.id === id);
+    if (!l) return;
+    const prev = state.userData.ratings[id];
+    if (prev) catScore(l.category, -RATING_W[prev]);
+    state.userData.ratings[id] = rating;
+    catScore(l.category, RATING_W[rating]);
+  }
+  function lessonScore(l) {
+    return (state.userData.categoryScores[l.category] || 0)
+      + (state.userData.lessonsRead.includes(l.id) ? -2 : 0);
+  }
+  function recommended(excludeId, n) {
+    const scored = state.lessons.filter(l => l.id !== excludeId)
+      .map(l => ({ l, s: lessonScore(l) })).sort((a, b) => b.s - a.s);
+    const unread = scored.filter(x => !state.userData.lessonsRead.includes(x.l.id));
+    return [...unread, ...scored].slice(0, n);
+  }
+
+  function pickToday() {
+    const d = today();
+    if (state.userData.todayDate === d && state.userData.todayLessonId) {
+      const c = state.lessons.find(l => l.id === state.userData.todayLessonId);
+      if (c) return c;
     }
-  }
-
-  function saveUserData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.userData));
-  }
-
-  function today() {
-    return new Date().toISOString().split("T")[0];
-  }
-
-  // --- Preference Engine ---
-
-  function getCategoryScores() {
-    return state.userData.categoryScores || {};
-  }
-
-  function addCategorySignal(category, weight) {
-    if (!category) return;
-    if (!state.userData.categoryScores) state.userData.categoryScores = {};
-    const current = state.userData.categoryScores[category] || 0;
-    state.userData.categoryScores[category] = Math.round((current + weight) * 100) / 100;
-    saveUserData();
-  }
-
-  function ratelesson(lessonId, rating) {
-    const lesson = state.lessons.find((l) => l.id === lessonId);
-    if (!lesson) return;
-
-    const prev = state.userData.ratings[lessonId];
-    if (prev) {
-      addCategorySignal(lesson.category, -RATING_WEIGHTS[prev]);
-    }
-
-    state.userData.ratings[lessonId] = rating;
-    addCategorySignal(lesson.category, RATING_WEIGHTS[rating]);
-    saveUserData();
-  }
-
-  function getLessonScore(lesson) {
-    const scores = getCategoryScores();
-    const catScore = scores[lesson.category] || 0;
-    const wasRead = state.userData.lessonsRead.includes(lesson.id) ? -2 : 0;
-    return catScore + wasRead;
-  }
-
-  function getRecommendedLessons(excludeId, count) {
-    const scored = state.lessons
-      .filter((l) => l.id !== excludeId)
-      .map((l) => ({ lesson: l, score: getLessonScore(l) }));
-
-    scored.sort((a, b) => b.score - a.score);
-
-    const unread = scored.filter(
-      (s) => !state.userData.lessonsRead.includes(s.lesson.id)
-    );
-    const read = scored.filter((s) =>
-      state.userData.lessonsRead.includes(s.lesson.id)
-    );
-
-    const pool = [...unread, ...read];
-    return pool.slice(0, count);
-  }
-
-  function pickTodayLesson() {
-    const todayStr = today();
-    if (
-      state.userData.todayDate === todayStr &&
-      state.userData.todayLessonId
-    ) {
-      const cached = state.lessons.find(
-        (l) => l.id === state.userData.todayLessonId
-      );
-      if (cached) return cached;
-    }
-
-    const scores = getCategoryScores();
-    const hasPreferences = Object.values(scores).some((s) => s !== 0);
-
+    const sc = state.userData.categoryScores;
+    const hasP = Object.values(sc).some(v => v !== 0);
     let chosen;
-
-    if (hasPreferences) {
-      const unread = state.lessons.filter(
-        (l) => !state.userData.lessonsRead.includes(l.id)
-      );
-      const pool = unread.length > 0 ? unread : state.lessons;
-
-      const weighted = pool.map((l) => {
-        const catScore = scores[l.category] || 0;
-        return { lesson: l, weight: Math.max(catScore + 10, 1) };
-      });
-
-      const dayHash = hashDate(todayStr);
-      const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
-      let target = (dayHash % (totalWeight * 100)) / 100;
-
-      chosen = weighted[weighted.length - 1].lesson;
-      for (const w of weighted) {
-        target -= w.weight;
-        if (target <= 0) {
-          chosen = w.lesson;
-          break;
-        }
-      }
+    if (hasP) {
+      const pool = state.lessons.filter(l => !state.userData.lessonsRead.includes(l.id));
+      const src = pool.length ? pool : state.lessons;
+      const w = src.map(l => ({ l, w: Math.max((sc[l.category] || 0) + 10, 1) }));
+      const h = hashDate(d);
+      const tot = w.reduce((s, x) => s + x.w, 0);
+      let t = (h % (tot * 100)) / 100;
+      chosen = w[w.length - 1].l;
+      for (const x of w) { t -= x.w; if (t <= 0) { chosen = x.l; break; } }
     } else {
-      const dayIndex = Math.floor(
-        (new Date(todayStr) - new Date("2025-01-01")) / (1000 * 60 * 60 * 24)
-      );
-      chosen = state.lessons[dayIndex % state.lessons.length];
+      const di = Math.floor((new Date(d) - new Date("2025-01-01")) / 864e5);
+      chosen = state.lessons[di % state.lessons.length];
     }
-
     state.userData.todayLessonId = chosen.id;
-    state.userData.todayDate = todayStr;
-    saveUserData();
+    state.userData.todayDate = d;
+    save();
     return chosen;
   }
+  function hashDate(s) { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h); }
 
-  function hashDate(dateStr) {
-    let h = 0;
-    for (let i = 0; i < dateStr.length; i++) {
-      h = ((h << 5) - h + dateStr.charCodeAt(i)) | 0;
-    }
-    return Math.abs(h);
-  }
-
-  // --- Streak ---
-
+  /* ---------- streak ---------- */
   function updateStreak() {
-    const now = today();
-    const last = state.userData.lastVisit;
-
-    if (!last) {
-      state.userData.streak = 1;
-    } else if (last === now) {
-      // same day
-    } else {
-      const lastDate = new Date(last);
-      const nowDate = new Date(now);
-      const diff = Math.floor(
-        (nowDate - lastDate) / (1000 * 60 * 60 * 24)
-      );
+    const d = today(), last = state.userData.lastVisit;
+    if (!last) state.userData.streak = 1;
+    else if (last !== d) {
+      const diff = Math.floor((new Date(d) - new Date(last)) / 864e5);
       state.userData.streak = diff === 1 ? state.userData.streak + 1 : 1;
     }
-
-    state.userData.lastVisit = now;
-    saveUserData();
-    renderStreak();
+    state.userData.lastVisit = d;
+    save();
+    document.getElementById("streak-count").textContent = state.userData.streak;
   }
 
-  function renderStreak() {
-    document.getElementById("streak-count").textContent =
-      state.userData.streak;
-    const statEl = document.getElementById("stat-streak");
-    if (statEl) statEl.textContent = state.userData.streak;
-  }
-
-  // --- Markdown ---
-
-  function markdownToHtml(text) {
+  /* ---------- markdown ---------- */
+  function md(text) {
     return text
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
       .replace(/^- (.+)$/gm, "<li>$1</li>")
-      .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
+      .replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>")
       .replace(/\n\n/g, "</p><p>")
       .replace(/\n/g, "<br>")
-      .replace(/^(.+)$/gm, function (line) {
-        if (line.startsWith("<") || line.startsWith("</")) return line;
-        return line;
-      })
       .replace(/^(?!<)/, "<p>")
       .replace(/(?!>)$/, "</p>");
   }
 
-  function categoryClass(cat) {
-    return "cat-" + cat;
-  }
-
-  // --- Data Loading ---
-
-  async function fetchLessons() {
-    const res = await fetch("lessons.json");
-    state.lessons = await res.json();
-    state.categories = [...new Set(state.lessons.map((l) => l.category))];
-  }
-
-  // --- Feedback UI ---
-
-  function setupFeedbackButtons(prefix, getLessonFn) {
-    ["love", "like", "meh", "dislike"].forEach((rating) => {
-      const btn = document.getElementById(prefix + "-fb-" + rating);
-      if (!btn) return;
-      btn.addEventListener("click", () => {
-        const lesson = getLessonFn();
-        if (!lesson) return;
-        ratelesson(lesson.id, rating);
-        updateFeedbackUI(prefix, lesson.id);
-        renderRecommended();
-      });
-    });
-  }
-
-  function updateFeedbackUI(prefix, lessonId) {
-    const current = state.userData.ratings[lessonId];
-    ["love", "like", "meh", "dislike"].forEach((r) => {
-      const btn = document.getElementById(prefix + "-fb-" + r);
-      if (btn) btn.classList.toggle("selected", current === r);
-    });
-  }
-
-  // --- Rendering ---
-
-  function renderTodayLesson() {
-    const lesson = state.todayLesson;
-    if (!lesson) return;
-
-    document.getElementById("today-category").textContent = lesson.category;
-    document.getElementById("today-category").className =
-      "today-category " + categoryClass(lesson.category);
-    document.getElementById("today-emoji").textContent = lesson.emoji;
-    document.getElementById("today-title").textContent = lesson.title;
-    document.getElementById("today-duration").textContent = lesson.duration;
-    document.getElementById("today-body").innerHTML = markdownToHtml(
-      lesson.content
-    );
-    document.getElementById("today-takeaway-text").textContent =
-      lesson.keyTakeaway;
-    document.getElementById("today-further-text").textContent =
-      lesson.furtherReading;
-
-    updateBookmarkButton(
-      lesson.id,
-      document.getElementById("btn-bookmark"),
-      document.getElementById("bookmark-icon")
-    );
-
-    updateFeedbackUI("today", lesson.id);
-
-    if (!state.userData.lessonsRead.includes(lesson.id)) {
-      state.userData.lessonsRead.push(lesson.id);
-      addCategorySignal(lesson.category, SIGNAL_WEIGHTS.read);
-      scheduleReview(lesson.id);
-      saveUserData();
+  /* ---------- split content into cards ---------- */
+  function splitContent(text) {
+    const paragraphs = text.split(/\n\n+/).filter(p => p.trim());
+    const cards = [];
+    let buf = "";
+    for (const p of paragraphs) {
+      if (buf && (buf + "\n\n" + p).length > 500) {
+        cards.push(buf);
+        buf = p;
+      } else {
+        buf = buf ? buf + "\n\n" + p : p;
+      }
     }
+    if (buf) cards.push(buf);
+    return cards;
+  }
 
-    updateStreak();
+  /* ---------- data ---------- */
+  async function fetchLessons() {
+    const r = await fetch("lessons.json");
+    state.lessons = await r.json();
+    state.categories = [...new Set(state.lessons.map(l => l.category))];
+  }
+
+  /* ---------- greeting ---------- */
+  function greeting() {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  }
+
+  /* ---------- HOME rendering ---------- */
+  function renderHome() {
+    const l = state.todayLesson;
+    if (!l) return;
+
+    document.getElementById("home-greeting").textContent = greeting();
+    document.getElementById("featured-category").textContent = l.category;
+    document.getElementById("featured-emoji").textContent = l.emoji;
+    document.getElementById("featured-title").textContent = l.title;
+    document.getElementById("featured-duration").textContent = l.duration;
+
+    const teaser = l.content.split("\n\n")[0].replace(/\*+/g, "").slice(0, 160) + "…";
+    document.getElementById("featured-teaser").textContent = teaser;
+
+    const numCards = splitContent(l.content).length + 3;
+    document.getElementById("featured-cards-count").textContent = numCards + " cards";
+
+    const gi = hashDate(today()) % GRADIENTS.length;
+    document.getElementById("featured-card").style.background = GRADIENTS[gi];
+
     renderRecommended();
+    renderContinue();
   }
 
   function renderRecommended() {
     const list = document.getElementById("recommended-list");
     const hint = document.getElementById("recommended-hint");
-    const section = document.getElementById("today-recommended");
-    if (!list || !section) return;
-
-    const scores = getCategoryScores();
-    const hasPrefs = Object.values(scores).some((s) => s > 0);
-
-    if (!hasPrefs) {
-      hint.textContent = "Rate lessons to get personalized recommendations.";
-      list.innerHTML = "";
-      return;
-    }
-
-    const recs = getRecommendedLessons(
-      state.todayLesson ? state.todayLesson.id : -1,
-      4
-    );
-
-    if (recs.length === 0) {
-      list.innerHTML =
-        '<p class="empty-state">Rate more lessons to unlock recommendations.</p>';
-      return;
-    }
-
-    const maxScore = Math.max(...recs.map((r) => r.score), 1);
-
+    const sc = state.userData.categoryScores;
+    const hasP = Object.values(sc).some(v => v > 0);
+    if (!hasP) { hint.textContent = "Rate lessons to unlock personalized picks."; list.innerHTML = ""; return; }
     hint.textContent = "Based on what you enjoy";
-    list.innerHTML = recs
-      .map((r) => {
-        const pct = Math.min(Math.round((Math.max(r.score, 0) / maxScore) * 100), 100);
-        const isUnread = !state.userData.lessonsRead.includes(r.lesson.id);
-        return `
-        <div class="recommended-card" data-id="${r.lesson.id}">
-          <div class="recommended-card-emoji">${r.lesson.emoji}</div>
-          <div class="recommended-card-info">
-            <div class="recommended-card-title">${r.lesson.title}</div>
-            <div class="recommended-card-meta">
-              <span class="library-card-cat ${categoryClass(r.lesson.category)}">${r.lesson.category}</span>
-              <span>${r.lesson.duration}</span>
-              ${isUnread ? "" : '<span class="library-card-check">✓ Read</span>'}
-            </div>
-          </div>
-          <span class="recommended-card-match">${pct}% match</span>
-        </div>`;
-      })
-      .join("");
-
-    list.querySelectorAll(".recommended-card").forEach((card) => {
-      card.addEventListener("click", () =>
-        openLesson(parseInt(card.dataset.id))
-      );
-    });
+    const recs = recommended(state.todayLesson ? state.todayLesson.id : -1, 6);
+    list.innerHTML = recs.map((r, i) => {
+      const gi = (i + 1) % GRADIENTS.length;
+      return `<div class="mini-card" data-id="${r.l.id}" style="background:${GRADIENTS[gi]}">
+        <div class="mini-card-emoji">${r.l.emoji}</div>
+        <div class="mini-card-title">${r.l.title}</div>
+        <div class="mini-card-meta">${r.l.category} · ${r.l.duration}</div>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".mini-card").forEach(c =>
+      c.addEventListener("click", () => openReader(parseInt(c.dataset.id))));
   }
 
-  function renderLibrary(filter) {
-    const grid = document.getElementById("library-grid");
-    let filtered =
-      filter && filter !== "all"
-        ? state.lessons.filter((l) => l.category === filter)
-        : [...state.lessons];
-
-    const scores = getCategoryScores();
-    const hasPrefs = Object.values(scores).some((s) => s !== 0);
-
-    if (hasPrefs && (!filter || filter === "all")) {
-      filtered.sort((a, b) => getLessonScore(b) - getLessonScore(a));
-    }
-
-    grid.innerHTML = filtered
-      .map((lesson) => {
-        const rating = state.userData.ratings[lesson.id];
-        const ratingBadge = rating
-          ? `<span class="library-card-rating">${rating === "love" ? "♥" : rating === "like" ? "👍" : rating === "meh" ? "😐" : "👎"}</span>`
-          : "";
-        return `
-      <div class="library-card" data-id="${lesson.id}">
-        <div class="library-card-emoji">${lesson.emoji}</div>
-        <div class="library-card-info">
-          <div class="library-card-title">${lesson.title}</div>
-          <div class="library-card-meta">
-            <span class="library-card-cat ${categoryClass(lesson.category)}">${lesson.category}</span>
-            <span>${lesson.duration}</span>
-            ${state.userData.lessonsRead.includes(lesson.id) ? '<span class="library-card-check">✓ Read</span>' : ""}
-            ${ratingBadge}
-          </div>
-        </div>
-      </div>
-    `;
-      })
-      .join("");
-
-    grid.querySelectorAll(".library-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        openLesson(parseInt(card.dataset.id));
-      });
-    });
+  function renderContinue() {
+    const list = document.getElementById("continue-list");
+    const unread = state.lessons.filter(l =>
+      !state.userData.lessonsRead.includes(l.id) &&
+      (!state.todayLesson || l.id !== state.todayLesson.id)
+    ).slice(0, 6);
+    if (!unread.length) { list.innerHTML = '<p class="empty-state" style="padding:8px 0;font-size:0.82rem;">You\'ve read everything! More lessons coming soon.</p>'; return; }
+    list.innerHTML = unread.map((l, i) => {
+      const gi = (i + 3) % GRADIENTS.length;
+      return `<div class="mini-card" data-id="${l.id}" style="background:${GRADIENTS[gi]}">
+        <div class="mini-card-emoji">${l.emoji}</div>
+        <div class="mini-card-title">${l.title}</div>
+        <div class="mini-card-meta">${l.category} · ${l.duration}</div>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".mini-card").forEach(c =>
+      c.addEventListener("click", () => openReader(parseInt(c.dataset.id))));
   }
 
-  function renderFilters() {
-    const container = document.getElementById("library-filters");
-    const scores = getCategoryScores();
-    const sorted = [...state.categories].sort(
-      (a, b) => (scores[b] || 0) - (scores[a] || 0)
-    );
-    const chips = ["all", ...sorted];
-
-    container.innerHTML = chips
-      .map(
-        (cat) =>
-          `<button class="filter-chip ${cat === state.activeFilter ? "active" : ""}" data-cat="${cat}">${cat}</button>`
-      )
-      .join("");
-
-    container.querySelectorAll(".filter-chip").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        state.activeFilter = chip.dataset.cat;
-        container
-          .querySelectorAll(".filter-chip")
-          .forEach((c) => c.classList.remove("active"));
-        chip.classList.add("active");
-        renderLibrary(state.activeFilter);
-      });
-    });
-  }
-
-  function renderInterests() {
-    const grid = document.getElementById("interests-grid");
-    if (!grid) return;
-
-    const scores = getCategoryScores();
-    const entries = state.categories.map((cat) => ({
-      cat,
-      score: scores[cat] || 0,
-    }));
-
-    entries.sort((a, b) => b.score - a.score);
-    const maxScore = Math.max(...entries.map((e) => Math.abs(e.score)), 1);
-
-    if (entries.every((e) => e.score === 0)) {
-      grid.innerHTML =
-        '<p class="empty-state">Read and rate lessons to see your interest profile.</p>';
-      return;
-    }
-
-    grid.innerHTML = entries
-      .map((e) => {
-        const pct = Math.round(
-          (Math.max(e.score, 0) / maxScore) * 100
-        );
-        const color = CATEGORY_COLORS[e.cat] || "#7c5c3c";
-        return `
-        <div class="interest-row">
-          <span class="interest-label">${e.cat}</span>
-          <div class="interest-bar-track">
-            <div class="interest-bar-fill" style="width:${Math.max(pct, 2)}%;background:${color}"></div>
-          </div>
-          <span class="interest-score">${e.score > 0 ? "+" : ""}${e.score}</span>
-        </div>`;
-      })
-      .join("");
-  }
-
-  function renderProgress() {
-    document.getElementById("stat-streak").textContent =
-      state.userData.streak;
-    document.getElementById("stat-lessons").textContent =
-      state.userData.lessonsRead.length;
-    document.getElementById("stat-quizzes").textContent =
-      state.userData.quizzesPassed.length;
-    document.getElementById("stat-bookmarks").textContent =
-      state.userData.bookmarks.length;
-
-    renderInterests();
-
-    const bookmarksList = document.getElementById("bookmarks-list");
-    if (state.userData.bookmarks.length === 0) {
-      bookmarksList.innerHTML =
-        '<p class="empty-state">No bookmarks yet. Save lessons you want to revisit!</p>';
-    } else {
-      bookmarksList.innerHTML = state.userData.bookmarks
-        .map((id) => {
-          const lesson = state.lessons.find((l) => l.id === id);
-          if (!lesson) return "";
-          return `
-          <div class="bookmark-item" data-id="${lesson.id}">
-            <span class="bookmark-item-emoji">${lesson.emoji}</span>
-            <span class="bookmark-item-title">${lesson.title}</span>
-          </div>
-        `;
-        })
-        .join("");
-
-      bookmarksList.querySelectorAll(".bookmark-item").forEach((item) => {
-        item.addEventListener("click", () => {
-          openLesson(parseInt(item.dataset.id));
-        });
-      });
-    }
-
-    const reviewList = document.getElementById("review-list");
-    const dueReviews = state.userData.reviewQueue.filter(
-      (r) => r.dueDate <= today()
-    );
-    document.getElementById("review-badge").textContent = dueReviews.length;
-
-    if (dueReviews.length === 0) {
-      reviewList.innerHTML =
-        '<p class="empty-state">No reviews due. Check back later!</p>';
-    } else {
-      reviewList.innerHTML = dueReviews
-        .map((review) => {
-          const lesson = state.lessons.find(
-            (l) => l.id === review.lessonId
-          );
-          if (!lesson) return "";
-          return `
-          <div class="review-item" data-id="${lesson.id}">
-            <span class="review-item-emoji">${lesson.emoji}</span>
-            <span class="review-item-title">${lesson.title}</span>
-            <span class="review-item-due">Due today</span>
-          </div>
-        `;
-        })
-        .join("");
-
-      reviewList.querySelectorAll(".review-item").forEach((item) => {
-        item.addEventListener("click", () => {
-          openLesson(parseInt(item.dataset.id));
-        });
-      });
-    }
-  }
-
-  function openLesson(id) {
-    const lesson = state.lessons.find((l) => l.id === id);
+  /* ---------- CARD READER ---------- */
+  function openReader(lessonId) {
+    const lesson = state.lessons.find(l => l.id === lessonId);
     if (!lesson) return;
     state.currentLesson = lesson;
 
-    document.getElementById("lesson-category").textContent = lesson.category;
-    document.getElementById("lesson-category").className =
-      "today-category " + categoryClass(lesson.category);
-    document.getElementById("lesson-emoji").textContent = lesson.emoji;
-    document.getElementById("lesson-title").textContent = lesson.title;
-    document.getElementById("lesson-duration").textContent = lesson.duration;
-    document.getElementById("lesson-body").innerHTML = markdownToHtml(
-      lesson.content
-    );
-    document.getElementById("lesson-takeaway-text").textContent =
-      lesson.keyTakeaway;
-    document.getElementById("lesson-further-text").textContent =
-      lesson.furtherReading;
+    const contentCards = splitContent(lesson.content);
+    const cards = [];
 
-    updateBookmarkButton(
-      lesson.id,
-      document.getElementById("btn-lesson-bookmark"),
-      document.getElementById("lesson-bookmark-icon")
-    );
+    cards.push({ type: "intro", lesson });
 
-    updateFeedbackUI("lesson", lesson.id);
+    contentCards.forEach((text, i) => {
+      cards.push({ type: "content", text, index: i + 1, total: contentCards.length });
+    });
+
+    cards.push({ type: "takeaway", lesson });
+
+    if (lesson.quiz) cards.push({ type: "quiz", lesson });
+
+    cards.push({ type: "feedback", lesson });
+
+    state.readerCards = cards;
+    state.readerIndex = 0;
 
     if (!state.userData.lessonsRead.includes(lesson.id)) {
       state.userData.lessonsRead.push(lesson.id);
-      addCategorySignal(lesson.category, SIGNAL_WEIGHTS.read);
+      catScore(lesson.category, SIGNAL_W.read);
       scheduleReview(lesson.id);
-      saveUserData();
+      save();
     }
 
-    showScreen("lesson");
+    updateStreak();
+    renderReader();
+
+    document.getElementById("screen-reader").classList.remove("hidden");
+    document.getElementById("screen-reader").classList.add("active");
+    document.getElementById("bottom-nav").style.display = "none";
+
+    updateBookmarkBtn();
   }
 
-  function updateBookmarkButton(lessonId, btn, icon) {
-    const isBookmarked = state.userData.bookmarks.includes(lessonId);
-    icon.textContent = isBookmarked ? "★" : "☆";
-    btn.classList.toggle("bookmarked", isBookmarked);
+  function closeReader() {
+    document.getElementById("screen-reader").classList.add("hidden");
+    document.getElementById("screen-reader").classList.remove("active");
+    document.getElementById("bottom-nav").style.display = "";
+    renderHome();
+    if (state.currentScreen === "library") renderLibrary(state.activeFilter);
+    if (state.currentScreen === "progress") renderProgress();
   }
 
-  function toggleBookmark(lessonId, btn, icon) {
-    const lesson = state.lessons.find((l) => l.id === lessonId);
-    const idx = state.userData.bookmarks.indexOf(lessonId);
-    if (idx >= 0) {
-      state.userData.bookmarks.splice(idx, 1);
-      if (lesson) addCategorySignal(lesson.category, -SIGNAL_WEIGHTS.bookmark);
-    } else {
-      state.userData.bookmarks.push(lessonId);
-      if (lesson) addCategorySignal(lesson.category, SIGNAL_WEIGHTS.bookmark);
+  function renderReader() {
+    const container = document.getElementById("reader-cards");
+    const dots = document.getElementById("reader-dots");
+    const cards = state.readerCards;
+    const idx = state.readerIndex;
+
+    container.innerHTML = cards.map((card, i) => {
+      let pos = "hidden";
+      if (i === idx) pos = "current";
+      else if (i === idx + 1) pos = "next";
+      else if (i === idx - 1) pos = "prev";
+      return `<div class="reader-card" data-pos="${pos}" data-idx="${i}">${renderCardContent(card)}</div>`;
+    }).join("");
+
+    dots.innerHTML = cards.map((_, i) =>
+      `<div class="dot ${i === idx ? "active" : ""}"></div>`
+    ).join("");
+
+    document.getElementById("reader-counter").textContent = `${idx + 1} / ${cards.length}`;
+    document.getElementById("reader-progress-fill").style.width = `${((idx + 1) / cards.length) * 100}%`;
+
+    attachCardListeners();
+    setupSwipe();
+  }
+
+  function renderCardContent(card) {
+    if (card.type === "intro") {
+      return `<div class="card-intro">
+        <div class="card-intro-category">${card.lesson.category}</div>
+        <div class="card-intro-emoji">${card.lesson.emoji}</div>
+        <div class="card-intro-title">${card.lesson.title}</div>
+        <div class="card-intro-meta">${card.lesson.duration} · ${state.readerCards.length} cards</div>
+      </div>`;
     }
-    saveUserData();
-    updateBookmarkButton(lessonId, btn, icon);
+
+    if (card.type === "content") {
+      return `<div class="card-content">
+        <div class="card-label">Insight ${card.index} of ${card.total}</div>
+        <div class="card-body">${md(card.text)}</div>
+      </div>`;
+    }
+
+    if (card.type === "takeaway") {
+      return `<div class="card-takeaway">
+        <div class="card-takeaway-label">Key Takeaway</div>
+        <div class="card-takeaway-text">${card.lesson.keyTakeaway}</div>
+        <div class="card-further"><strong>Further Reading:</strong> ${card.lesson.furtherReading}</div>
+      </div>`;
+    }
+
+    if (card.type === "quiz") {
+      const q = card.lesson.quiz;
+      return `<div class="card-quiz">
+        <div class="card-quiz-label">Test Yourself</div>
+        <div class="card-quiz-question">${q.question}</div>
+        <div class="card-quiz-options">${q.options.map((o, i) =>
+          `<button class="quiz-opt" data-qi="${i}">${o}</button>`).join("")}</div>
+        <div class="card-quiz-result hidden" id="cq-result">
+          <div class="quiz-result-head" id="cq-head"></div>
+          <div class="quiz-result-explain" id="cq-explain"></div>
+        </div>
+      </div>`;
+    }
+
+    if (card.type === "feedback") {
+      const rating = state.userData.ratings[card.lesson.id] || "";
+      return `<div class="card-feedback">
+        <div class="card-feedback-title">How was this?</div>
+        <div class="card-feedback-sub">Your feedback shapes future recommendations</div>
+        <div class="feedback-btns">
+          <button class="fb-btn ${rating==="love"?"selected":""}" data-r="love"><span class="fb-icon">♥</span><span class="fb-text">Love it</span></button>
+          <button class="fb-btn ${rating==="like"?"selected":""}" data-r="like"><span class="fb-icon">👍</span><span class="fb-text">Good</span></button>
+          <button class="fb-btn ${rating==="meh"?"selected":""}" data-r="meh"><span class="fb-icon">😐</span><span class="fb-text">Meh</span></button>
+          <button class="fb-btn ${rating==="dislike"?"selected":""}" data-r="dislike"><span class="fb-icon">👎</span><span class="fb-text">Less</span></button>
+        </div>
+        <button class="card-done-btn" id="card-done">Done</button>
+      </div>`;
+    }
+    return "";
   }
 
-  // --- Quiz ---
-
-  function openQuiz(lesson) {
-    if (!lesson || !lesson.quiz) return;
-    state.currentLesson = lesson;
-
-    document.getElementById("quiz-question").textContent =
-      lesson.quiz.question;
-    const optionsEl = document.getElementById("quiz-options");
-    const resultEl = document.getElementById("quiz-result");
-    resultEl.classList.add("hidden");
-
-    optionsEl.innerHTML = lesson.quiz.options
-      .map(
-        (opt, i) =>
-          `<button class="quiz-option" data-index="${i}">${opt}</button>`
-      )
-      .join("");
-
-    optionsEl.querySelectorAll(".quiz-option").forEach((btn) => {
-      btn.addEventListener("click", () => handleQuizAnswer(btn, lesson));
+  function attachCardListeners() {
+    document.querySelectorAll(".quiz-opt").forEach(btn => {
+      btn.addEventListener("click", () => handleQuiz(btn));
     });
-
-    showScreen("quiz");
+    document.querySelectorAll(".fb-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const r = btn.dataset.r;
+        rateLesson(state.currentLesson.id, r);
+        document.querySelectorAll(".fb-btn").forEach(b => b.classList.toggle("selected", b.dataset.r === r));
+      });
+    });
+    const done = document.getElementById("card-done");
+    if (done) done.addEventListener("click", closeReader);
   }
 
-  function handleQuizAnswer(btn, lesson) {
-    const selected = parseInt(btn.dataset.index);
-    const correct = lesson.quiz.correctIndex;
-    const isCorrect = selected === correct;
-
-    const allBtns = document.querySelectorAll(".quiz-option");
-    allBtns.forEach((b) => {
+  function handleQuiz(btn) {
+    const qi = parseInt(btn.dataset.qi);
+    const q = state.currentLesson.quiz;
+    const correct = qi === q.correctIndex;
+    document.querySelectorAll(".quiz-opt").forEach((b, i) => {
       b.classList.add("disabled");
-      if (parseInt(b.dataset.index) === correct) b.classList.add("correct");
+      if (i === q.correctIndex) b.classList.add("correct");
     });
-
-    if (!isCorrect) btn.classList.add("incorrect");
-
-    const resultEl = document.getElementById("quiz-result");
-    const resultText = document.getElementById("quiz-result-text");
-    const explanation = document.getElementById("quiz-explanation");
-
-    resultText.textContent = isCorrect ? "Correct!" : "Not quite!";
-    resultText.className =
-      "quiz-result-text " + (isCorrect ? "correct" : "incorrect");
-    explanation.textContent = lesson.quiz.explanation;
-    resultEl.classList.remove("hidden");
-
-    if (isCorrect && !state.userData.quizzesPassed.includes(lesson.id)) {
-      state.userData.quizzesPassed.push(lesson.id);
-      addCategorySignal(lesson.category, SIGNAL_WEIGHTS.quiz_pass);
-      saveUserData();
+    if (!correct) btn.classList.add("wrong");
+    const res = document.getElementById("cq-result");
+    const head = document.getElementById("cq-head");
+    const exp = document.getElementById("cq-explain");
+    head.textContent = correct ? "Correct!" : "Not quite!";
+    head.className = "quiz-result-head " + (correct ? "correct" : "wrong");
+    exp.textContent = q.explanation;
+    res.classList.remove("hidden");
+    if (correct && !state.userData.quizzesPassed.includes(state.currentLesson.id)) {
+      state.userData.quizzesPassed.push(state.currentLesson.id);
+      catScore(state.currentLesson.category, SIGNAL_W.quiz);
+      save();
     }
   }
 
-  // --- Spaced Repetition ---
+  function navigateReader(dir) {
+    const next = state.readerIndex + dir;
+    if (next < 0 || next >= state.readerCards.length) return;
+    state.readerIndex = next;
 
-  function scheduleReview(lessonId) {
-    const existing = state.userData.reviewQueue.find(
-      (r) => r.lessonId === lessonId
-    );
-    if (existing) return;
-
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 3);
-
-    state.userData.reviewQueue.push({
-      lessonId,
-      dueDate: dueDate.toISOString().split("T")[0],
-      interval: 3,
+    const cards = document.querySelectorAll(".reader-card");
+    cards.forEach(c => {
+      const i = parseInt(c.dataset.idx);
+      if (i === next) c.dataset.pos = "current";
+      else if (i === next + 1) c.dataset.pos = "next";
+      else if (i === next - 1) c.dataset.pos = "prev";
+      else c.dataset.pos = "hidden";
     });
-    saveUserData();
+
+    const dots = document.querySelectorAll(".dot");
+    dots.forEach((d, i) => d.classList.toggle("active", i === next));
+
+    document.getElementById("reader-counter").textContent = `${next + 1} / ${state.readerCards.length}`;
+    document.getElementById("reader-progress-fill").style.width = `${((next + 1) / state.readerCards.length) * 100}%`;
+
+    attachCardListeners();
   }
 
-  function completeReview(lessonId) {
-    const review = state.userData.reviewQueue.find(
-      (r) => r.lessonId === lessonId
-    );
-    if (!review) return;
+  /* ---------- swipe ---------- */
+  function setupSwipe() {
+    const el = document.getElementById("reader-cards");
+    let sx = 0, sy = 0, moving = false, locked = false;
 
-    review.interval = Math.min(review.interval * 2, 30);
-    const nextDue = new Date();
-    nextDue.setDate(nextDue.getDate() + review.interval);
-    review.dueDate = nextDue.toISOString().split("T")[0];
-    saveUserData();
+    el.addEventListener("touchstart", e => {
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+      moving = true;
+      locked = false;
+    }, { passive: true });
+
+    el.addEventListener("touchmove", e => {
+      if (!moving) return;
+      const dx = e.touches[0].clientX - sx;
+      const dy = e.touches[0].clientY - sy;
+      if (!locked) {
+        locked = true;
+        if (Math.abs(dy) > Math.abs(dx)) { moving = false; return; }
+      }
+    }, { passive: true });
+
+    el.addEventListener("touchend", e => {
+      if (!moving) return;
+      moving = false;
+      const dx = e.changedTouches[0].clientX - sx;
+      if (dx < -50) navigateReader(1);
+      else if (dx > 50) navigateReader(-1);
+    }, { passive: true });
   }
 
-  // --- Navigation ---
+  /* ---------- bookmark ---------- */
+  function updateBookmarkBtn() {
+    if (!state.currentLesson) return;
+    const btn = document.getElementById("reader-bookmark");
+    const is = state.userData.bookmarks.includes(state.currentLesson.id);
+    btn.textContent = is ? "★" : "☆";
+    btn.classList.toggle("active", is);
+  }
+  function toggleBookmark() {
+    if (!state.currentLesson) return;
+    const id = state.currentLesson.id;
+    const idx = state.userData.bookmarks.indexOf(id);
+    if (idx >= 0) { state.userData.bookmarks.splice(idx, 1); catScore(state.currentLesson.category, -SIGNAL_W.bookmark); }
+    else { state.userData.bookmarks.push(id); catScore(state.currentLesson.category, SIGNAL_W.bookmark); }
+    save();
+    updateBookmarkBtn();
+  }
 
+  /* ---------- spaced repetition ---------- */
+  function scheduleReview(id) {
+    if (state.userData.reviewQueue.find(r => r.lessonId === id)) return;
+    const d = new Date(); d.setDate(d.getDate() + 3);
+    state.userData.reviewQueue.push({ lessonId: id, dueDate: d.toISOString().split("T")[0], interval: 3 });
+    save();
+  }
+
+  /* ---------- library ---------- */
+  function renderLibrary(filter) {
+    const grid = document.getElementById("library-grid");
+    let list = filter && filter !== "all" ? state.lessons.filter(l => l.category === filter) : [...state.lessons];
+    const sc = state.userData.categoryScores;
+    if (Object.values(sc).some(v => v !== 0) && (!filter || filter === "all"))
+      list.sort((a, b) => lessonScore(b) - lessonScore(a));
+
+    grid.innerHTML = list.map(l => `
+      <div class="lib-card" data-id="${l.id}">
+        <div class="lib-card-emoji">${l.emoji}</div>
+        <div class="lib-card-info">
+          <div class="lib-card-title">${l.title}</div>
+          <div class="lib-card-meta">
+            <span class="cat-pill cat-${l.category}">${l.category}</span>
+            <span>${l.duration}</span>
+            ${state.userData.lessonsRead.includes(l.id) ? '<span class="lib-card-check">✓</span>' : ""}
+          </div>
+        </div>
+      </div>`).join("");
+
+    grid.querySelectorAll(".lib-card").forEach(c =>
+      c.addEventListener("click", () => openReader(parseInt(c.dataset.id))));
+  }
+
+  function renderFilters() {
+    const el = document.getElementById("library-filters");
+    const sc = state.userData.categoryScores;
+    const sorted = [...state.categories].sort((a, b) => (sc[b] || 0) - (sc[a] || 0));
+    el.innerHTML = ["all", ...sorted].map(c =>
+      `<button class="filter-chip ${c === state.activeFilter ? "active" : ""}" data-cat="${c}">${c}</button>`
+    ).join("");
+    el.querySelectorAll(".filter-chip").forEach(ch => ch.addEventListener("click", () => {
+      state.activeFilter = ch.dataset.cat;
+      el.querySelectorAll(".filter-chip").forEach(c => c.classList.toggle("active", c.dataset.cat === state.activeFilter));
+      renderLibrary(state.activeFilter);
+    }));
+  }
+
+  /* ---------- progress ---------- */
+  function renderProgress() {
+    document.getElementById("stat-streak").textContent = state.userData.streak;
+    document.getElementById("stat-lessons").textContent = state.userData.lessonsRead.length;
+    document.getElementById("stat-quizzes").textContent = state.userData.quizzesPassed.length;
+    document.getElementById("stat-bookmarks").textContent = state.userData.bookmarks.length;
+
+    const ig = document.getElementById("interests-grid");
+    const sc = state.userData.categoryScores;
+    const entries = state.categories.map(c => ({ c, s: sc[c] || 0 })).sort((a, b) => b.s - a.s);
+    const max = Math.max(...entries.map(e => Math.abs(e.s)), 1);
+    if (entries.every(e => e.s === 0)) ig.innerHTML = '<p class="empty-state">Read and rate lessons to see your profile.</p>';
+    else ig.innerHTML = entries.map(e => {
+      const pct = Math.round(Math.max(e.s, 0) / max * 100);
+      return `<div class="interest-row"><span class="interest-label">${e.c}</span>
+        <div class="interest-bar-track"><div class="interest-bar-fill" style="width:${Math.max(pct,2)}%;background:${CAT_COLORS[e.c]||"#7c6cf0"}"></div></div>
+        <span class="interest-score">${e.s > 0 ? "+" : ""}${e.s}</span></div>`;
+    }).join("");
+
+    const bl = document.getElementById("bookmarks-list");
+    if (!state.userData.bookmarks.length) bl.innerHTML = '<p class="empty-state">No bookmarks yet.</p>';
+    else {
+      bl.innerHTML = state.userData.bookmarks.map(id => {
+        const l = state.lessons.find(x => x.id === id);
+        return l ? `<div class="bk-item" data-id="${l.id}"><span class="bk-item-emoji">${l.emoji}</span><span class="bk-item-title">${l.title}</span></div>` : "";
+      }).join("");
+      bl.querySelectorAll(".bk-item").forEach(x => x.addEventListener("click", () => openReader(parseInt(x.dataset.id))));
+    }
+
+    const rl = document.getElementById("review-list");
+    const due = state.userData.reviewQueue.filter(r => r.dueDate <= today());
+    document.getElementById("review-badge").textContent = due.length;
+    if (!due.length) rl.innerHTML = '<p class="empty-state">No reviews due.</p>';
+    else {
+      rl.innerHTML = due.map(r => {
+        const l = state.lessons.find(x => x.id === r.lessonId);
+        return l ? `<div class="rv-item" data-id="${l.id}"><span class="rv-item-emoji">${l.emoji}</span><span class="rv-item-title">${l.title}</span><span class="rv-item-due">Due today</span></div>` : "";
+      }).join("");
+      rl.querySelectorAll(".rv-item").forEach(x => x.addEventListener("click", () => openReader(parseInt(x.dataset.id))));
+    }
+  }
+
+  /* ---------- nav ---------- */
   function showScreen(name) {
     state.currentScreen = name;
-    setBackground();
-
-    document
-      .querySelectorAll(".screen")
-      .forEach((s) => s.classList.remove("active"));
-    const target = document.getElementById("screen-" + name);
-    if (target) target.classList.add("active");
-
-    document.querySelectorAll(".nav-tab").forEach((t) => {
-      t.classList.toggle("active", t.dataset.screen === name);
-    });
-
-    const backBtn = document.getElementById("btn-back");
-    const isSubScreen = name === "quiz" || name === "lesson";
-    backBtn.classList.toggle("hidden", !isSubScreen);
-
-    if (name === "library") {
-      renderFilters();
-      renderLibrary(state.activeFilter);
-    } else if (name === "progress") {
-      renderProgress();
-    }
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-
-    if (!isSubScreen) {
-      state._parentScreen = name;
-    }
+    document.querySelectorAll("#screen-today,#screen-library,#screen-progress").forEach(s => s.classList.remove("active"));
+    const t = document.getElementById("screen-" + name);
+    if (t) t.classList.add("active");
+    document.querySelectorAll(".nav-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.screen === name));
+    if (name === "library") { renderFilters(); renderLibrary(state.activeFilter); }
+    else if (name === "progress") renderProgress();
+    else renderHome();
+    window.scrollTo({ top: 0 });
   }
 
-  // --- Init ---
-
+  /* ---------- init ---------- */
   async function init() {
     await fetchLessons();
+    state.todayLesson = pickToday();
+    updateStreak();
+    renderHome();
 
-    state.todayLesson = pickTodayLesson();
+    document.getElementById("featured-card").addEventListener("click", e => {
+      if (e.target.closest(".featured-start")) openReader(state.todayLesson.id);
+    });
+    document.getElementById("featured-start").addEventListener("click", () => openReader(state.todayLesson.id));
 
-    renderTodayLesson();
-    renderFilters();
-    renderStreak();
+    document.querySelectorAll(".nav-tab").forEach(t => t.addEventListener("click", () => showScreen(t.dataset.screen)));
+    document.getElementById("reader-close").addEventListener("click", closeReader);
+    document.getElementById("reader-prev").addEventListener("click", () => navigateReader(-1));
+    document.getElementById("reader-next").addEventListener("click", () => navigateReader(1));
+    document.getElementById("reader-bookmark").addEventListener("click", toggleBookmark);
 
-    setupFeedbackButtons("today", () => state.todayLesson);
-    setupFeedbackButtons("lesson", () => state.currentLesson);
-
-    document.querySelectorAll(".nav-tab").forEach((tab) => {
-      tab.addEventListener("click", () => showScreen(tab.dataset.screen));
+    document.addEventListener("keydown", e => {
+      if (!document.getElementById("screen-reader").classList.contains("active")) return;
+      if (e.key === "ArrowRight") navigateReader(1);
+      if (e.key === "ArrowLeft") navigateReader(-1);
+      if (e.key === "Escape") closeReader();
     });
 
-    document.getElementById("btn-back").addEventListener("click", () => {
-      showScreen(state._parentScreen || "today");
-    });
-
-    document.getElementById("btn-quiz").addEventListener("click", () => {
-      openQuiz(state.todayLesson);
-    });
-
-    document
-      .getElementById("btn-lesson-quiz")
-      .addEventListener("click", () => {
-        openQuiz(state.currentLesson);
-      });
-
-    document.getElementById("btn-bookmark").addEventListener("click", () => {
-      if (state.todayLesson) {
-        toggleBookmark(
-          state.todayLesson.id,
-          document.getElementById("btn-bookmark"),
-          document.getElementById("bookmark-icon")
-        );
-      }
-    });
-
-    document
-      .getElementById("btn-lesson-bookmark")
-      .addEventListener("click", () => {
-        if (state.currentLesson) {
-          toggleBookmark(
-            state.currentLesson.id,
-            document.getElementById("btn-lesson-bookmark"),
-            document.getElementById("lesson-bookmark-icon")
-          );
-        }
-      });
-
-    document.getElementById("btn-quiz-done").addEventListener("click", () => {
-      if (state.currentLesson) {
-        completeReview(state.currentLesson.id);
-      }
-      showScreen(state._parentScreen || "today");
-    });
-
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
-
-    setupInstallPrompt();
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+    setupInstall();
   }
 
-  // --- Install Prompt ---
-
-  let deferredInstallPrompt = null;
-
-  function setupInstallPrompt() {
-    const banner = document.getElementById("install-banner");
-    const btnInstall = document.getElementById("btn-install");
-    const btnClose = document.getElementById("btn-install-close");
-    const instructions = document.getElementById("install-instructions");
-
-    if (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      navigator.standalone
-    ) {
-      return;
-    }
-
-    const dismissed = sessionStorage.getItem("microlearn_install_dismissed");
-    if (dismissed) return;
-
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredInstallPrompt = e;
-      instructions.textContent = "Get quick access from your home screen.";
-      banner.classList.remove("hidden");
-    });
-
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-    if (isIOS) {
-      instructions.textContent =
-        'Tap the share button ⎙ then "Add to Home Screen."';
-      btnInstall.textContent = "Got it";
-      banner.classList.remove("hidden");
-
-      btnInstall.addEventListener("click", () => {
-        banner.classList.add("hidden");
-        sessionStorage.setItem("microlearn_install_dismissed", "1");
-      });
-    } else {
-      btnInstall.addEventListener("click", async () => {
-        if (deferredInstallPrompt) {
-          deferredInstallPrompt.prompt();
-          const result = await deferredInstallPrompt.userChoice;
-          if (result.outcome === "accepted") {
-            banner.classList.add("hidden");
-          }
-          deferredInstallPrompt = null;
-        } else {
-          instructions.textContent =
-            'Use your browser menu → "Add to Home Screen" or "Install App."';
-          btnInstall.textContent = "Got it";
-          btnInstall.addEventListener(
-            "click",
-            () => {
-              banner.classList.add("hidden");
-              sessionStorage.setItem("microlearn_install_dismissed", "1");
-            },
-            { once: true }
-          );
-        }
-      });
-    }
-
-    btnClose.addEventListener("click", () => {
-      banner.classList.add("hidden");
-      sessionStorage.setItem("microlearn_install_dismissed", "1");
-    });
-
-    setTimeout(() => {
-      if (
-        !deferredInstallPrompt &&
-        !isIOS &&
-        !banner.classList.contains("hidden")
-      )
-        return;
-      if (!deferredInstallPrompt && !isIOS) {
-        instructions.textContent =
-          'Use your browser menu → "Add to Home Screen."';
-        btnInstall.textContent = "Got it";
-        banner.classList.remove("hidden");
-      }
-    }, 3000);
+  /* ---------- install ---------- */
+  let dip = null;
+  function setupInstall() {
+    const b = document.getElementById("install-banner");
+    const bi = document.getElementById("btn-install");
+    const bc = document.getElementById("btn-install-close");
+    const ins = document.getElementById("install-instructions");
+    if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) return;
+    if (sessionStorage.getItem("ml_inst_d")) return;
+    window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); dip = e; ins.textContent = "Get quick access from your home screen."; b.classList.remove("hidden"); });
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (iOS) { ins.textContent = 'Tap share ⎙ then "Add to Home Screen."'; bi.textContent = "Got it"; b.classList.remove("hidden"); bi.addEventListener("click", () => { b.classList.add("hidden"); sessionStorage.setItem("ml_inst_d", "1"); }); }
+    else bi.addEventListener("click", async () => { if (dip) { dip.prompt(); await dip.userChoice; dip = null; } b.classList.add("hidden"); sessionStorage.setItem("ml_inst_d", "1"); });
+    bc.addEventListener("click", () => { b.classList.add("hidden"); sessionStorage.setItem("ml_inst_d", "1"); });
   }
 
   init();
