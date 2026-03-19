@@ -45,12 +45,20 @@
       <div class="home-header">
         <div>
           <h1 class="home-greeting" id="home-greeting">Good morning</h1>
-          <p class="home-subtitle">Your daily insight awaits</p>
+          <p class="home-subtitle"><span id="xp-level-title">Curious Novice</span></p>
         </div>
-        <div class="nav-streak" title="Current streak">
-          <span class="streak-flame">🔥</span>
-          <span class="streak-count" id="streak-count">0</span>
+        <div class="home-header-right">
+          <span class="xp-badge" id="xp-level-num">Lv.1</span>
+          <div class="nav-streak" title="Current streak">
+            <span class="streak-flame">🔥</span>
+            <span class="streak-count" id="streak-count">0</span>
+          </div>
         </div>
+      </div>
+
+      <div class="xp-bar-container">
+        <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar-fill"></div></div>
+        <div class="xp-bar-label" id="xp-bar-label">0 / 50 XP</div>
       </div>
 
       <div class="featured-card" id="featured-card">
@@ -63,6 +71,18 @@
           <span class="featured-cards-count" id="featured-cards-count"></span>
         </div>
         <button class="featured-start" id="featured-start">Start Reading</button>
+      </div>
+
+      <div class="home-section hidden" id="reviews-due-section">
+        <h3 class="home-section-title">Reviews Due <span class="review-count-badge" id="reviews-due-count">0</span></h3>
+        <p class="home-section-hint">Strengthen your memory with spaced repetition</p>
+        <div class="reviews-due-list" id="reviews-due-list"></div>
+      </div>
+
+      <div class="home-section">
+        <h3 class="home-section-title">Learning Paths</h3>
+        <p class="home-section-hint">Structured multi-day journeys through big ideas</p>
+        <div class="card-row" id="paths-list"></div>
       </div>
 
       <div class="home-section">
@@ -89,28 +109,51 @@
     <!-- ===== PROGRESS ===== -->
     <section id="screen-progress" class="screen">
       <div class="progress-header"><h2>Your Progress</h2></div>
+
+      <div class="xp-bar-container" style="padding:0 20px 16px;">
+        <div class="xp-bar-track"><div class="xp-bar-fill" id="prog-xp-bar-fill"></div></div>
+        <div class="xp-bar-label" id="prog-xp-bar-label">0 / 50 XP</div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-value" id="stat-streak">0</div><div class="stat-label">Day Streak</div></div>
         <div class="stat-card"><div class="stat-value" id="stat-lessons">0</div><div class="stat-label">Lessons Read</div></div>
         <div class="stat-card"><div class="stat-value" id="stat-quizzes">0</div><div class="stat-label">Quizzes Aced</div></div>
         <div class="stat-card"><div class="stat-value" id="stat-bookmarks">0</div><div class="stat-label">Saved</div></div>
       </div>
+
+      <div class="progress-section">
+        <h3>Achievements</h3>
+        <p class="section-hint">Milestones on your learning journey.</p>
+        <div class="achievements-grid" id="achievements-grid"></div>
+      </div>
+
       <div class="progress-section">
         <h3>Your Interests</h3>
         <p class="section-hint">The app learns your tastes and adjusts recommendations.</p>
         <div class="interests-grid" id="interests-grid"></div>
       </div>
+
+      <div class="progress-section">
+        <h3>Review Queue <span class="review-badge" id="review-badge">0</span></h3>
+        <p class="section-hint">Spaced repetition: 1 day → 3 days → 1 week → 2 weeks → 1 month</p>
+        <div class="review-list" id="review-list">
+          <p class="empty-state">Complete lessons to build your review queue!</p>
+        </div>
+      </div>
+
+      <div class="progress-section">
+        <h3>Reflections</h3>
+        <p class="section-hint">Your private journal of thoughts and insights.</p>
+        <div class="journal-list" id="journal-list">
+          <p class="empty-state">No reflections yet. Write one after a lesson!</p>
+        </div>
+      </div>
+
       <div class="progress-section">
         <h3>Bookmarked</h3>
         <div class="bookmarks-list" id="bookmarks-list">
           <p class="empty-state">No bookmarks yet.</p>
-        </div>
-      </div>
-      <div class="progress-section">
-        <h3>Review Queue <span class="review-badge" id="review-badge">0</span></h3>
-        <p class="section-hint">Spaced repetition to strengthen memory.</p>
-        <div class="review-list" id="review-list">
-          <p class="empty-state">Complete lessons to build your review queue!</p>
         </div>
       </div>
     </section>

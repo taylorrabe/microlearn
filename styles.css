@@ -223,6 +223,10 @@ body.art-6::before { background-image: url('https://upload.wikimedia.org/wikiped
   margin-bottom: 14px;
 }
 
+.home-section:last-child {
+  padding-bottom: 100px;
+}
+
 .card-row {
   display: flex;
   gap: 12px;
@@ -773,6 +777,10 @@ body.art-6::before { background-image: url('https://upload.wikimedia.org/wikiped
   margin-bottom: 24px;
 }
 
+.progress-section:last-child {
+  padding-bottom: 100px;
+}
+
 .progress-section h3 {
   font-size: 1.05rem;
   margin-bottom: 6px;
@@ -952,6 +960,371 @@ body.art-6::before { background-image: url('https://upload.wikimedia.org/wikiped
   font-size: 1.3rem;
   cursor: pointer;
   padding: 4px;
+}
+
+/* ===================== XP BAR ===================== */
+
+.home-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xp-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.xp-bar-container {
+  padding: 0 20px 12px;
+}
+
+.xp-bar-track {
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  width: 0%;
+}
+
+.xp-bar-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+  text-align: right;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ===================== TOASTS ===================== */
+
+.xp-toast, .level-up-toast, .achievement-toast {
+  position: fixed;
+  top: max(20px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%) translateY(-80px);
+  z-index: 9999;
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.xp-toast {
+  background: rgba(46, 125, 91, 0.92);
+  color: #fff;
+}
+
+.level-up-toast {
+  background: rgba(124, 92, 60, 0.95);
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.achievement-toast {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+
+.xp-toast.show, .level-up-toast.show, .achievement-toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.toast-icon { margin-right: 4px; }
+
+/* ===================== REVIEWS DUE ===================== */
+
+.review-count-badge {
+  background: var(--error);
+  color: #fff;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.reviews-due-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-due-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.review-due-card:active { transform: scale(0.98); }
+.review-due-emoji { font-size: 1.4rem; flex-shrink: 0; }
+.review-due-info { flex: 1; min-width: 0; }
+.review-due-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 2px; }
+.review-due-meta { font-size: 0.7rem; color: var(--text-dim); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+.review-due-btn {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  flex-shrink: 0;
+}
+
+/* ===================== LEARNING PATHS ===================== */
+
+.path-card {
+  flex-shrink: 0;
+  width: 200px;
+  padding: 18px 16px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.path-card:active { transform: scale(0.96); }
+.path-card-emoji { font-size: 1.8rem; margin-bottom: 8px; }
+
+.path-card-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.path-card-desc {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.4;
+  margin-bottom: auto;
+}
+
+.path-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.5);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.path-card-pct {
+  font-weight: 700;
+  color: rgba(255,255,255,0.8);
+}
+
+.path-card-bar {
+  height: 3px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.path-card-bar-fill {
+  height: 100%;
+  background: rgba(255,255,255,0.8);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.path-done {
+  opacity: 0.75;
+}
+
+/* ===================== ACHIEVEMENTS ===================== */
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.achievement-card {
+  padding: 14px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.achievement-card.locked {
+  opacity: 0.4;
+}
+
+.achievement-card.unlocked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.achievement-icon {
+  font-size: 1.5rem;
+  margin-bottom: 6px;
+}
+
+.achievement-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.achievement-desc {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* ===================== JOURNAL ===================== */
+
+.card-journal {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.card-journal-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.card-journal-prompt {
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 20px;
+}
+
+.card-journal-input {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.2s;
+}
+
+.card-journal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.card-journal-input::placeholder {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.card-journal-save {
+  width: 100%;
+  padding: 14px;
+  margin-top: 14px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.2s;
+}
+
+.card-journal-save:active { transform: scale(0.97); }
+
+.card-journal-hint {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 10px;
+  font-style: italic;
+}
+
+.journal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journal-entry {
+  padding: 14px 16px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.journal-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.journal-entry-lesson {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.journal-entry-date {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.journal-entry-text {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-style: italic;
+  white-space: pre-wrap;
 }
 
 /* ===================== UTILITY ===================== */

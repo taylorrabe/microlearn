@@ -10,6 +10,42 @@
     linguistics: "#2a8a5e",
   };
 
+  const XP_REWARDS = { read: 10, quiz: 25, bookmark: 5, rate: 5, review: 15, journal: 10, pathComplete: 75 };
+  const REVIEW_INTERVALS = [1, 3, 7, 14, 30];
+  const LEVELS = [
+    { level: 1, title: "Curious Novice", xp: 0 },
+    { level: 2, title: "Eager Learner", xp: 50 },
+    { level: 3, title: "Knowledge Seeker", xp: 150 },
+    { level: 4, title: "Quick Study", xp: 300 },
+    { level: 5, title: "Deep Thinker", xp: 500 },
+    { level: 6, title: "Avid Scholar", xp: 800 },
+    { level: 7, title: "Wisdom Keeper", xp: 1200 },
+    { level: 8, title: "Renaissance Mind", xp: 1800 },
+    { level: 9, title: "Enlightened Soul", xp: 2500 },
+    { level: 10, title: "Polymath", xp: 3500 },
+  ];
+  const ACHIEVEMENTS = [
+    { id: "first_lesson", title: "First Steps", desc: "Read your first lesson", icon: "📖", check: u => u.lessonsRead.length >= 1 },
+    { id: "five_lessons", title: "Bookworm", desc: "Read 5 lessons", icon: "📚", check: u => u.lessonsRead.length >= 5 },
+    { id: "streak_3", title: "Getting Warm", desc: "3-day streak", icon: "🔥", check: u => u.streak >= 3 },
+    { id: "streak_7", title: "On Fire", desc: "7-day streak", icon: "🔥", check: u => u.streak >= 7 },
+    { id: "streak_30", title: "Unstoppable", desc: "30-day streak", icon: "💪", check: u => u.streak >= 30 },
+    { id: "quiz_5", title: "Quiz Whiz", desc: "Pass 5 quizzes", icon: "🎯", check: u => u.quizzesPassed.length >= 5 },
+    { id: "bookmarks_3", title: "Collector", desc: "Bookmark 3 lessons", icon: "⭐", check: u => u.bookmarks.length >= 3 },
+    { id: "journal_5", title: "Reflective Mind", desc: "Write 5 journal entries", icon: "✍️", check: u => Object.keys(u.journal || {}).length >= 5 },
+    { id: "review_5", title: "Memory Master", desc: "Complete 5 reviews", icon: "🧠", check: u => (u.reviewsCompleted || 0) >= 5 },
+    { id: "path_complete", title: "Pathfinder", desc: "Complete a learning path", icon: "🏆", check: u => Object.values(u.pathProgress || {}).some(p => p.completed) },
+    { id: "xp_500", title: "Scholar", desc: "Earn 500 XP", icon: "✨", check: u => (u.xp || 0) >= 500 },
+    { id: "xp_2000", title: "Luminary", desc: "Earn 2000 XP", icon: "🌟", check: u => (u.xp || 0) >= 2000 },
+  ];
+  const PATHS = [
+    { id: "minds", title: "Minds & Decisions", desc: "How your brain tricks, helps, and limits you", emoji: "🧠", lessons: [2, 12, 17, 21, 30, 26], days: "6 days" },
+    { id: "philosophy", title: "Thinking About Thinking", desc: "Classical questions that still matter today", emoji: "🏛️", lessons: [6, 14, 16, 23, 25], days: "5 days" },
+    { id: "dostoevsky", title: "Dostoevsky Deep Dive", desc: "The Russian master's ideas, struggles, and legacy", emoji: "📕", lessons: [31, 32, 33, 34, 35, 36, 37], days: "7 days" },
+    { id: "cosmos", title: "The Universe & Beyond", desc: "From quantum particles to the edge of space", emoji: "🌌", lessons: [1, 7, 13, 15, 20, 22, 29], days: "7 days" },
+    { id: "numbers", title: "Numbers & Patterns", desc: "Beautiful paradoxes hiding inside mathematics", emoji: "🔢", lessons: [3, 9, 18, 27], days: "4 days" },
+  ];
+
   const PAINTINGS = [
     { cls: "art-0", title: "The Starry Night", artist: "Vincent van Gogh, 1889" },
     { cls: "art-1", title: "The Great Wave off Kanagawa", artist: "Katsushika Hokusai, 1831" },
@@ -38,7 +74,7 @@
   const state = {
     lessons: [], categories: [], todayLesson: null, currentLesson: null,
     currentScreen: "today", activeFilter: "all",
-    readerCards: [], readerIndex: 0,
+    readerCards: [], readerIndex: 0, isReview: false,
     userData: loadUserData(),
   };
 
@@ -46,13 +82,97 @@
   function loadUserData() {
     const d = { streak: 0, lastVisit: null, lessonsRead: [], quizzesPassed: [],
       bookmarks: [], reviewQueue: [], ratings: {}, categoryScores: {},
-      todayLessonId: null, todayDate: null };
+      todayLessonId: null, todayDate: null,
+      xp: 0, achievements: [], journal: {}, pathProgress: {}, reviewsCompleted: 0 };
     try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY)); return s ? { ...d, ...s } : d; }
     catch { return d; }
   }
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.userData)); }
 
+  /* ---------- XP & leveling ---------- */
+  function awardXP(amount) {
+    const oldLevel = getLevel();
+    state.userData.xp = (state.userData.xp || 0) + amount;
+    save();
+    const newLevel = getLevel();
+    updateXPDisplay();
+    if (newLevel.level > oldLevel.level) showLevelUp(newLevel);
+    checkAchievements();
+  }
+  function getLevel() {
+    const xp = state.userData.xp || 0;
+    let current = LEVELS[0];
+    for (const l of LEVELS) { if (xp >= l.xp) current = l; }
+    return current;
+  }
+  function getNextLevel() {
+    const cur = getLevel();
+    return LEVELS.find(l => l.level === cur.level + 1) || null;
+  }
+  function updateXPDisplay() {
+    const xp = state.userData.xp || 0;
+    const lvl = getLevel();
+    const next = getNextLevel();
+    const el = document.getElementById("xp-level-title");
+    if (el) el.textContent = lvl.title;
+    const badge = document.getElementById("xp-level-num");
+    if (badge) badge.textContent = "Lv." + lvl.level;
+
+    const fills = [document.getElementById("xp-bar-fill"), document.getElementById("prog-xp-bar-fill")];
+    const labels = [document.getElementById("xp-bar-label"), document.getElementById("prog-xp-bar-label")];
+
+    fills.forEach((fill, i) => {
+      const label = labels[i];
+      if (!fill) return;
+      if (next) {
+        const pct = ((xp - lvl.xp) / (next.xp - lvl.xp)) * 100;
+        fill.style.width = Math.min(pct, 100) + "%";
+        if (label) label.textContent = xp + " / " + next.xp + " XP";
+      } else {
+        fill.style.width = "100%";
+        if (label) label.textContent = xp + " XP — Max Level!";
+      }
+    });
+  }
+  function showLevelUp(level) {
+    const el = document.createElement("div");
+    el.className = "level-up-toast";
+    el.innerHTML = `<span class="toast-icon">⬆️</span> Level ${level.level}: <strong>${level.title}</strong>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add("show"), 50);
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 3000);
+  }
+  function showXPToast(amount, label) {
+    const el = document.createElement("div");
+    el.className = "xp-toast";
+    el.textContent = "+" + amount + " XP · " + label;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add("show"), 50);
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 2000);
+  }
+  function checkAchievements() {
+    const u = state.userData;
+    if (!u.achievements) u.achievements = [];
+    for (const a of ACHIEVEMENTS) {
+      if (u.achievements.includes(a.id)) continue;
+      if (a.check && a.check(u)) {
+        u.achievements.push(a.id);
+        save();
+        showAchievementToast(a);
+      }
+    }
+  }
+
   function today() { return new Date().toISOString().split("T")[0]; }
+
+  function showAchievementToast(a) {
+    const el = document.createElement("div");
+    el.className = "achievement-toast";
+    el.innerHTML = `<span class="toast-icon">${a.icon}</span> <strong>${a.title}</strong> — ${a.desc}`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add("show"), 50);
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 400); }, 3500);
+  }
 
   /* ---------- preference engine ---------- */
   function catScore(cat, delta) {
@@ -187,8 +307,66 @@
     const gi = hashDate(today()) % GRADIENTS.length;
     document.getElementById("featured-card").style.background = GRADIENTS[gi];
 
+    updateXPDisplay();
+    renderReviewsDue();
+    renderPaths();
     renderRecommended();
     renderContinue();
+  }
+
+  function renderReviewsDue() {
+    const container = document.getElementById("reviews-due-section");
+    const list = document.getElementById("reviews-due-list");
+    const due = getDueReviews();
+    if (!due.length) { container.classList.add("hidden"); return; }
+    container.classList.remove("hidden");
+    document.getElementById("reviews-due-count").textContent = due.length;
+    list.innerHTML = due.map(r => {
+      const l = state.lessons.find(x => x.id === r.lessonId);
+      if (!l) return "";
+      const stage = r.stage || 0;
+      const labels = ["1 day", "3 days", "1 week", "2 weeks", "1 month"];
+      return `<div class="review-due-card" data-id="${l.id}">
+        <div class="review-due-emoji">${l.emoji}</div>
+        <div class="review-due-info">
+          <div class="review-due-title">${l.title}</div>
+          <div class="review-due-meta">Interval: ${labels[stage] || "?"} · Stage ${stage + 1}/${REVIEW_INTERVALS.length}</div>
+        </div>
+        <div class="review-due-btn">Review</div>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".review-due-card").forEach(c =>
+      c.addEventListener("click", () => openReader(parseInt(c.dataset.id), true)));
+  }
+
+  function renderPaths() {
+    const list = document.getElementById("paths-list");
+    if (!list) return;
+    list.innerHTML = PATHS.map((p, i) => {
+      const pct = Math.round(getPathProgress(p) * 100);
+      const pp = (state.userData.pathProgress || {})[p.id];
+      const done = pp && pp.completed;
+      const gi = i % GRADIENTS.length;
+      return `<div class="path-card ${done ? "path-done" : ""}" data-path="${p.id}" style="background:${GRADIENTS[gi]}">
+        <div class="path-card-emoji">${p.emoji}</div>
+        <div class="path-card-title">${p.title}</div>
+        <div class="path-card-desc">${p.desc}</div>
+        <div class="path-card-footer">
+          <span class="path-card-days">${p.lessons.length} lessons · ${p.days}</span>
+          <span class="path-card-pct">${done ? "✓ Complete" : pct + "%"}</span>
+        </div>
+        <div class="path-card-bar"><div class="path-card-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".path-card").forEach(c => {
+      c.addEventListener("click", () => {
+        const path = PATHS.find(p => p.id === c.dataset.path);
+        if (!path) return;
+        const next = getNextPathLesson(path);
+        if (next) openReader(next);
+        else openReader(path.lessons[0]);
+      });
+    });
   }
 
   function renderRecommended() {
@@ -231,10 +409,11 @@
   }
 
   /* ---------- CARD READER ---------- */
-  function openReader(lessonId) {
+  function openReader(lessonId, isReview) {
     const lesson = state.lessons.find(l => l.id === lessonId);
     if (!lesson) return;
     state.currentLesson = lesson;
+    state.isReview = !!isReview;
 
     const contentCards = splitContent(lesson.content);
     const cards = [];
@@ -249,16 +428,21 @@
 
     if (lesson.quiz) cards.push({ type: "quiz", lesson });
 
+    cards.push({ type: "journal", lesson });
     cards.push({ type: "feedback", lesson });
 
     state.readerCards = cards;
     state.readerIndex = 0;
 
-    if (!state.userData.lessonsRead.includes(lesson.id)) {
+    const firstRead = !state.userData.lessonsRead.includes(lesson.id);
+    if (firstRead) {
       state.userData.lessonsRead.push(lesson.id);
       catScore(lesson.category, SIGNAL_W.read);
       scheduleReview(lesson.id);
       save();
+      awardXP(XP_REWARDS.read);
+      showXPToast(XP_REWARDS.read, "Lesson started");
+      advancePaths(lesson.id);
     }
 
     updateStreak();
@@ -272,6 +456,10 @@
   }
 
   function closeReader() {
+    if (state.isReview && state.currentLesson) {
+      completeReview(state.currentLesson.id);
+    }
+    state.isReview = false;
     document.getElementById("screen-reader").classList.add("hidden");
     document.getElementById("screen-reader").classList.remove("active");
     document.getElementById("bottom-nav").style.display = "";
@@ -344,6 +532,18 @@
       </div>`;
     }
 
+    if (card.type === "journal") {
+      const existing = (state.userData.journal || {})[card.lesson.id];
+      const prev = existing && existing.length ? existing[existing.length - 1].text : "";
+      return `<div class="card-journal">
+        <div class="card-journal-label">Reflect</div>
+        <div class="card-journal-prompt">What did this make you think about?</div>
+        <textarea class="card-journal-input" id="journal-input" placeholder="Write your thoughts..." rows="5">${prev}</textarea>
+        <button class="card-journal-save" id="journal-save">Save Reflection</button>
+        <div class="card-journal-hint">Your reflections are private and stored locally.</div>
+      </div>`;
+    }
+
     if (card.type === "feedback") {
       const rating = state.userData.ratings[card.lesson.id] || "";
       return `<div class="card-feedback">
@@ -368,12 +568,35 @@
     document.querySelectorAll(".fb-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const r = btn.dataset.r;
+        const hadRating = !!state.userData.ratings[state.currentLesson.id];
         rateLesson(state.currentLesson.id, r);
         document.querySelectorAll(".fb-btn").forEach(b => b.classList.toggle("selected", b.dataset.r === r));
+        if (!hadRating) { awardXP(XP_REWARDS.rate); showXPToast(XP_REWARDS.rate, "Feedback"); }
       });
     });
     const done = document.getElementById("card-done");
     if (done) done.addEventListener("click", closeReader);
+
+    const jsave = document.getElementById("journal-save");
+    if (jsave) jsave.addEventListener("click", saveJournal);
+  }
+
+  function saveJournal() {
+    const input = document.getElementById("journal-input");
+    if (!input || !input.value.trim()) return;
+    const id = state.currentLesson.id;
+    if (!state.userData.journal) state.userData.journal = {};
+    if (!state.userData.journal[id]) state.userData.journal[id] = [];
+    const entries = state.userData.journal[id];
+    const d = today();
+    const existing = entries.findIndex(e => e.date === d);
+    if (existing >= 0) entries[existing].text = input.value.trim();
+    else entries.push({ date: d, text: input.value.trim() });
+    save();
+    awardXP(XP_REWARDS.journal);
+    showXPToast(XP_REWARDS.journal, "Reflection saved");
+    const btn = document.getElementById("journal-save");
+    if (btn) { btn.textContent = "Saved ✓"; btn.style.background = "var(--success)"; }
   }
 
   function handleQuiz(btn) {
@@ -396,6 +619,8 @@
       state.userData.quizzesPassed.push(state.currentLesson.id);
       catScore(state.currentLesson.category, SIGNAL_W.quiz);
       save();
+      awardXP(XP_REWARDS.quiz);
+      showXPToast(XP_REWARDS.quiz, "Quiz aced!");
     }
   }
 
@@ -466,17 +691,73 @@
     const id = state.currentLesson.id;
     const idx = state.userData.bookmarks.indexOf(id);
     if (idx >= 0) { state.userData.bookmarks.splice(idx, 1); catScore(state.currentLesson.category, -SIGNAL_W.bookmark); }
-    else { state.userData.bookmarks.push(id); catScore(state.currentLesson.category, SIGNAL_W.bookmark); }
+    else {
+      state.userData.bookmarks.push(id);
+      catScore(state.currentLesson.category, SIGNAL_W.bookmark);
+      awardXP(XP_REWARDS.bookmark);
+      showXPToast(XP_REWARDS.bookmark, "Bookmarked");
+    }
     save();
     updateBookmarkBtn();
+  }
+
+  /* ---------- learning paths ---------- */
+  function advancePaths(lessonId) {
+    if (!state.userData.pathProgress) state.userData.pathProgress = {};
+    for (const path of PATHS) {
+      if (!path.lessons.includes(lessonId)) continue;
+      let pp = state.userData.pathProgress[path.id];
+      if (!pp) { pp = { started: today(), lessonsRead: [], completed: false }; state.userData.pathProgress[path.id] = pp; }
+      if (!pp.lessonsRead.includes(lessonId)) pp.lessonsRead.push(lessonId);
+      if (!pp.completed && pp.lessonsRead.length === path.lessons.length) {
+        pp.completed = true;
+        pp.completedDate = today();
+        awardXP(XP_REWARDS.pathComplete);
+        showXPToast(XP_REWARDS.pathComplete, "Path complete!");
+      }
+      save();
+    }
+  }
+  function getPathProgress(path) {
+    const pp = (state.userData.pathProgress || {})[path.id];
+    if (!pp) return 0;
+    return pp.lessonsRead.length / path.lessons.length;
+  }
+  function getNextPathLesson(path) {
+    const pp = (state.userData.pathProgress || {})[path.id];
+    const read = pp ? pp.lessonsRead : [];
+    return path.lessons.find(id => !read.includes(id));
   }
 
   /* ---------- spaced repetition ---------- */
   function scheduleReview(id) {
     if (state.userData.reviewQueue.find(r => r.lessonId === id)) return;
-    const d = new Date(); d.setDate(d.getDate() + 3);
-    state.userData.reviewQueue.push({ lessonId: id, dueDate: d.toISOString().split("T")[0], interval: 3 });
+    const d = new Date();
+    d.setDate(d.getDate() + REVIEW_INTERVALS[0]);
+    state.userData.reviewQueue.push({ lessonId: id, dueDate: d.toISOString().split("T")[0], stage: 0 });
     save();
+  }
+  function completeReview(lessonId) {
+    const q = state.userData.reviewQueue;
+    const idx = q.findIndex(r => r.lessonId === lessonId);
+    if (idx < 0) return;
+    const item = q[idx];
+    const nextStage = (item.stage || 0) + 1;
+    if (nextStage >= REVIEW_INTERVALS.length) {
+      q.splice(idx, 1);
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + REVIEW_INTERVALS[nextStage]);
+      item.dueDate = d.toISOString().split("T")[0];
+      item.stage = nextStage;
+    }
+    state.userData.reviewsCompleted = (state.userData.reviewsCompleted || 0) + 1;
+    save();
+    awardXP(XP_REWARDS.review);
+    showXPToast(XP_REWARDS.review, "Review completed");
+  }
+  function getDueReviews() {
+    return (state.userData.reviewQueue || []).filter(r => r.dueDate <= today());
   }
 
   /* ---------- library ---------- */
@@ -525,6 +806,10 @@
     document.getElementById("stat-quizzes").textContent = state.userData.quizzesPassed.length;
     document.getElementById("stat-bookmarks").textContent = state.userData.bookmarks.length;
 
+    updateXPDisplay();
+    renderAchievements();
+    renderJournalHistory();
+
     const ig = document.getElementById("interests-grid");
     const sc = state.userData.categoryScores;
     const entries = state.categories.map(c => ({ c, s: sc[c] || 0 })).sort((a, b) => b.s - a.s);
@@ -548,16 +833,55 @@
     }
 
     const rl = document.getElementById("review-list");
-    const due = state.userData.reviewQueue.filter(r => r.dueDate <= today());
+    const due = getDueReviews();
     document.getElementById("review-badge").textContent = due.length;
     if (!due.length) rl.innerHTML = '<p class="empty-state">No reviews due.</p>';
     else {
       rl.innerHTML = due.map(r => {
         const l = state.lessons.find(x => x.id === r.lessonId);
-        return l ? `<div class="rv-item" data-id="${l.id}"><span class="rv-item-emoji">${l.emoji}</span><span class="rv-item-title">${l.title}</span><span class="rv-item-due">Due today</span></div>` : "";
+        const stage = r.stage || 0;
+        const labels = ["1d", "3d", "1w", "2w", "1mo"];
+        return l ? `<div class="rv-item" data-id="${l.id}"><span class="rv-item-emoji">${l.emoji}</span><span class="rv-item-title">${l.title}</span><span class="rv-item-due">Stage ${stage + 1} · ${labels[stage]}</span></div>` : "";
       }).join("");
-      rl.querySelectorAll(".rv-item").forEach(x => x.addEventListener("click", () => openReader(parseInt(x.dataset.id))));
+      rl.querySelectorAll(".rv-item").forEach(x => x.addEventListener("click", () => openReader(parseInt(x.dataset.id), true)));
     }
+  }
+
+  function renderAchievements() {
+    const grid = document.getElementById("achievements-grid");
+    if (!grid) return;
+    const earned = state.userData.achievements || [];
+    grid.innerHTML = ACHIEVEMENTS.map(a => {
+      const unlocked = earned.includes(a.id);
+      return `<div class="achievement-card ${unlocked ? "unlocked" : "locked"}">
+        <div class="achievement-icon">${unlocked ? a.icon : "🔒"}</div>
+        <div class="achievement-title">${a.title}</div>
+        <div class="achievement-desc">${a.desc}</div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderJournalHistory() {
+    const list = document.getElementById("journal-list");
+    if (!list) return;
+    const journal = state.userData.journal || {};
+    const allEntries = [];
+    for (const [lid, entries] of Object.entries(journal)) {
+      const l = state.lessons.find(x => x.id === parseInt(lid));
+      if (!l) continue;
+      for (const e of entries) allEntries.push({ lesson: l, date: e.date, text: e.text });
+    }
+    allEntries.sort((a, b) => b.date.localeCompare(a.date));
+    if (!allEntries.length) { list.innerHTML = '<p class="empty-state">No reflections yet. Write one after a lesson!</p>'; return; }
+    list.innerHTML = allEntries.slice(0, 20).map(e => `
+      <div class="journal-entry">
+        <div class="journal-entry-header">
+          <span class="journal-entry-lesson">${e.lesson.emoji} ${e.lesson.title}</span>
+          <span class="journal-entry-date">${e.date}</span>
+        </div>
+        <div class="journal-entry-text">${e.text}</div>
+      </div>
+    `).join("");
   }
 
   /* ---------- nav ---------- */
