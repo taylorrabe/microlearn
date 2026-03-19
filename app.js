@@ -25,11 +25,16 @@
     linguistics: "#2a8a5e",
   };
 
+  let currentArtIndex = -1;
+
   function setBackground() {
-    const dayIndex = Math.floor(
-      (new Date() - new Date("2025-01-01")) / (1000 * 60 * 60 * 24)
-    );
-    const painting = PAINTINGS[dayIndex % PAINTINGS.length];
+    let next;
+    do {
+      next = Math.floor(Math.random() * PAINTINGS.length);
+    } while (next === currentArtIndex && PAINTINGS.length > 1);
+    currentArtIndex = next;
+
+    const painting = PAINTINGS[currentArtIndex];
     document.body.className = painting.cls;
 
     let credit = document.querySelector(".art-credit");
@@ -704,6 +709,7 @@
 
   function showScreen(name) {
     state.currentScreen = name;
+    setBackground();
 
     document
       .querySelectorAll(".screen")

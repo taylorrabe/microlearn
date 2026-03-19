@@ -62,7 +62,7 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.45;
+  opacity: 0.25;
   z-index: -1;
   transition: background-image 1.2s ease-in-out;
 }
