@@ -1,51 +1,88 @@
 :root {
-  --bg: #0a0a14;
-  --bg-card: rgba(22, 22, 38, 0.95);
-  --bg-card-solid: #16162a;
-  --bg-hover: #1e1e36;
-  --text: #eeeef4;
-  --text-secondary: #a0a0b8;
-  --text-dim: #66667a;
-  --accent: #7c6cf0;
-  --accent-soft: rgba(124, 108, 240, 0.15);
-  --success: #34d399;
-  --success-bg: rgba(52, 211, 153, 0.12);
-  --error: #f87171;
-  --error-bg: rgba(248, 113, 113, 0.12);
-  --warning: #fbbf24;
+  --bg: #f5f0eb;
+  --bg-card: rgba(255, 255, 255, 0.82);
+  --bg-card-solid: #fff;
+  --bg-hover: rgba(255, 255, 255, 0.92);
+  --text: #2c2420;
+  --text-secondary: #6b5e55;
+  --text-dim: #9a8d84;
+  --accent: #7c5c3c;
+  --accent-soft: rgba(124, 92, 60, 0.1);
+  --success: #2e7d5b;
+  --success-bg: rgba(46, 125, 91, 0.1);
+  --error: #c0392b;
+  --error-bg: rgba(192, 57, 43, 0.1);
+  --warning: #b7791f;
   --radius: 20px;
   --radius-sm: 14px;
   --radius-xs: 10px;
   --nav-h: 72px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --glass-border: rgba(180, 160, 140, 0.25);
 
-  --cat-science: #34d399;
-  --cat-psychology: #fb923c;
-  --cat-mathematics: #a78bfa;
-  --cat-history: #fbbf24;
-  --cat-technology: #60a5fa;
-  --cat-philosophy: #c084fc;
-  --cat-linguistics: #2dd4bf;
+  --cat-science: #1a7a6d;
+  --cat-psychology: #b85c3a;
+  --cat-mathematics: #5b4a9e;
+  --cat-history: #9e7c20;
+  --cat-technology: #2c6fbb;
+  --cat-philosophy: #7b6aad;
+  --cat-linguistics: #2a8a5e;
 
-  --grad-1: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-  --grad-2: linear-gradient(135deg, #134e4a 0%, #115e59 50%, #0d9488 100%);
-  --grad-3: linear-gradient(135deg, #4a1d2e 0%, #831843 50%, #be185d 100%);
-  --grad-4: linear-gradient(135deg, #1c1917 0%, #78350f 50%, #b45309 100%);
-  --grad-5: linear-gradient(135deg, #0c1a2e 0%, #1e3a5f 50%, #2563eb 100%);
-  --grad-6: linear-gradient(135deg, #1a0b2e 0%, #4c1d95 50%, #7c3aed 100%);
-  --grad-7: linear-gradient(135deg, #052e16 0%, #166534 50%, #16a34a 100%);
+  --grad-1: linear-gradient(135deg, #d4c5b0 0%, #c4a882 50%, #a88b6a 100%);
+  --grad-2: linear-gradient(135deg, #b8d4ce 0%, #7ab5a8 50%, #4a9688 100%);
+  --grad-3: linear-gradient(135deg, #d4b8c8 0%, #b8849e 50%, #9a6080 100%);
+  --grad-4: linear-gradient(135deg, #d4ccb8 0%, #c4a86e 50%, #a88840 100%);
+  --grad-5: linear-gradient(135deg, #b8c8d4 0%, #7a9ab8 50%, #4a78a0 100%);
+  --grad-6: linear-gradient(135deg, #c8b8d4 0%, #9a84b8 50%, #7a60a0 100%);
+  --grad-7: linear-gradient(135deg, #b8d4b8 0%, #7ab87a 50%, #4a984a 100%);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Georgia', 'Times New Roman', 'Palatino', serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.2;
+  z-index: -1;
+  transition: background-image 1s ease-in-out;
+}
+
+body.art-0::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1280px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg'); }
+body.art-1::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/The_Great_Wave_off_Kanagawa.jpg/1280px-The_Great_Wave_off_Kanagawa.jpg'); }
+body.art-2::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Claude_Monet_-_Water_Lilies_-_1906%2C_Chicago.jpg/1280px-Claude_Monet_-_Water_Lilies_-_1906%2C_Chicago.jpg'); }
+body.art-3::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/%22The_School_of_Athens%22_by_Raffaello_Sanzio_da_Urbino.jpg/1280px-%22The_School_of_Athens%22_by_Raffaello_Sanzio_da_Urbino.jpg'); }
+body.art-4::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg/800px-Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg'); }
+body.art-5::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg/1280px-Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg'); }
+body.art-6::before { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Vermeer-_Girl_with_a_Pearl_Earring.jpg/800px-Vermeer-_Girl_with_a_Pearl_Earring.jpg'); }
+
+.art-credit {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 4px + var(--safe-bottom));
+  right: 12px;
+  font-size: 0.58rem;
+  color: rgba(100, 80, 60, 0.35);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  pointer-events: none;
+  z-index: 50;
+  text-align: right;
+  max-width: 200px;
 }
 
 #app {
@@ -83,7 +120,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.05);
   padding: 8px 14px;
   border-radius: 24px;
   font-weight: 700;
@@ -114,9 +151,10 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  background: rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.95);
   margin-bottom: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .featured-emoji {
@@ -156,16 +194,17 @@ body {
   padding: 14px;
   border: none;
   border-radius: var(--radius-xs);
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.3);
   backdrop-filter: blur(10px);
   color: #fff;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.featured-start:active { background: rgba(255,255,255,0.3); }
+.featured-start:active { background: rgba(255,255,255,0.4); }
 
 /* Home Sections */
 .home-section {
@@ -234,6 +273,14 @@ body {
   flex-direction: column;
 }
 
+#screen-reader::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: inherit;
+  z-index: -1;
+}
+
 #screen-reader.active { display: flex; }
 
 .reader-header {
@@ -261,7 +308,7 @@ body {
 .reader-progress-bar {
   flex: 1;
   height: 3px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.08);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -355,8 +402,8 @@ body {
   color: var(--text);
 }
 
-.card-body strong { color: var(--accent); font-weight: 600; }
-.card-body em { color: var(--text-secondary); }
+.card-body strong { color: var(--accent); font-weight: 700; }
+.card-body em { color: var(--text-secondary); font-style: italic; }
 
 .card-body ul, .card-body ol {
   padding-left: 18px;
@@ -395,10 +442,11 @@ body {
   margin-top: 24px;
   padding: 14px 18px;
   border-radius: var(--radius-xs);
-  background: rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.04);
   font-size: 0.82rem;
   color: var(--text-dim);
   line-height: 1.5;
+  font-style: italic;
 }
 
 /* Quiz card */
@@ -424,15 +472,16 @@ body {
 
 .quiz-opt {
   padding: 14px 18px;
-  border: 2px solid rgba(255,255,255,0.08);
+  border: 2px solid var(--glass-border);
   border-radius: var(--radius-xs);
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-card);
   color: var(--text);
   font-size: 0.92rem;
   line-height: 1.4;
   cursor: pointer;
   text-align: left;
   transition: all 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .quiz-opt:active { transform: scale(0.98); }
@@ -444,7 +493,8 @@ body {
   margin-top: 16px;
   padding: 16px;
   border-radius: var(--radius-xs);
-  background: rgba(255,255,255,0.04);
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
 }
 
 .card-quiz-result.hidden { display: none; }
@@ -495,7 +545,7 @@ body {
   padding: 14px 8px;
   border: 2px solid transparent;
   border-radius: var(--radius-sm);
-  background: rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.04);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -541,7 +591,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 3px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.12);
   transition: all 0.3s;
 }
 
@@ -564,7 +614,7 @@ body {
   height: 44px;
   border: none;
   border-radius: 50%;
-  background: rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.05);
   color: var(--text);
   cursor: pointer;
   display: flex;
@@ -573,7 +623,7 @@ body {
   transition: background 0.2s;
 }
 
-.reader-nav-btn:active { background: rgba(255,255,255,0.12); }
+.reader-nav-btn:active { background: rgba(0,0,0,0.1); }
 
 .reader-counter {
   font-size: 0.78rem;
@@ -606,13 +656,14 @@ body {
   border-radius: 20px;
   font-size: 0.78rem;
   font-weight: 600;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: transparent;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   text-transform: capitalize;
   transition: all 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .filter-chip.active {
@@ -637,7 +688,9 @@ body {
   background: var(--bg-card);
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .lib-card:active { transform: scale(0.98); background: var(--bg-hover); }
@@ -698,7 +751,9 @@ body {
   border-radius: var(--radius-sm);
   padding: 18px;
   text-align: center;
-  border: 1px solid rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .stat-value {
@@ -766,7 +821,7 @@ body {
 .interest-bar-track {
   flex: 1;
   height: 6px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.06);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -821,10 +876,10 @@ body {
   width: 100%;
   max-width: 480px;
   display: flex;
-  background: rgba(10, 10, 20, 0.92);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255,255,255,0.05);
+  background: rgba(245, 240, 235, 0.85);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-top: 1px solid var(--glass-border);
   padding: 6px 0;
   padding-bottom: max(6px, var(--safe-bottom));
   z-index: 100;

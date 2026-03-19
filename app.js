@@ -5,10 +5,31 @@
   const RATING_W = { love: 5, like: 2, meh: -1, dislike: -3 };
   const SIGNAL_W = { read: 0.5, bookmark: 3, quiz: 1.5 };
   const CAT_COLORS = {
-    science: "#34d399", psychology: "#fb923c", mathematics: "#a78bfa",
-    history: "#fbbf24", technology: "#60a5fa", philosophy: "#c084fc",
-    linguistics: "#2dd4bf",
+    science: "#1a7a6d", psychology: "#b85c3a", mathematics: "#5b4a9e",
+    history: "#9e7c20", technology: "#2c6fbb", philosophy: "#7b6aad",
+    linguistics: "#2a8a5e",
   };
+
+  const PAINTINGS = [
+    { cls: "art-0", title: "The Starry Night", artist: "Vincent van Gogh, 1889" },
+    { cls: "art-1", title: "The Great Wave off Kanagawa", artist: "Katsushika Hokusai, 1831" },
+    { cls: "art-2", title: "Water Lilies", artist: "Claude Monet, 1906" },
+    { cls: "art-3", title: "The School of Athens", artist: "Raphael, 1511" },
+    { cls: "art-4", title: "Mona Lisa", artist: "Leonardo da Vinci, 1503" },
+    { cls: "art-5", title: "The Birth of Venus", artist: "Sandro Botticelli, 1485" },
+    { cls: "art-6", title: "Girl with a Pearl Earring", artist: "Johannes Vermeer, 1665" },
+  ];
+  let curArt = -1;
+  function setArt() {
+    let n; do { n = Math.floor(Math.random() * PAINTINGS.length); } while (n === curArt && PAINTINGS.length > 1);
+    curArt = n;
+    const p = PAINTINGS[curArt];
+    document.body.className = p.cls;
+    let c = document.querySelector(".art-credit");
+    if (!c) { c = document.createElement("div"); c.className = "art-credit"; document.body.appendChild(c); }
+    c.textContent = p.title + " — " + p.artist;
+  }
+  setArt();
   const GRADIENTS = [
     "var(--grad-1)", "var(--grad-2)", "var(--grad-3)", "var(--grad-4)",
     "var(--grad-5)", "var(--grad-6)", "var(--grad-7)",
@@ -542,6 +563,7 @@
   /* ---------- nav ---------- */
   function showScreen(name) {
     state.currentScreen = name;
+    setArt();
     document.querySelectorAll("#screen-today,#screen-library,#screen-progress").forEach(s => s.classList.remove("active"));
     const t = document.getElementById("screen-" + name);
     if (t) t.classList.add("active");
